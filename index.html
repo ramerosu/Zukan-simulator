@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>なんでも種族値シミュレーター | 標本図鑑エディタ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --paper:#eaf3fb;
+  --paper-card:#ffffff;
+  --ink:#221e1c;
+  --ink-soft:#5c6874;
+  --moss:#ee7f7b;
+  --moss-deep:#c25955;
+  --indigo:#33475e;
+  --ochre:#c08a2e;
+  --rule:#cfe1ec;
+  --stamp-red:#7a2420;
+  --card-radius:2px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(ellipse at top left, rgba(255,255,255,0.6), transparent 60%),
+    linear-gradient(160deg, #ffffff 0%, #eef6fb 55%, #dcedf7 100%);
+  background-attachment:fixed;
+  color:var(--ink);
+  font-family:'Zen Kaku Gothic New', sans-serif;
+  min-height:100vh;
+}
+body::before{
+  content:"";
+  position:fixed;inset:0;
+  pointer-events:none;
+  opacity:0.025;
+  background-image:
+    repeating-linear-gradient(0deg, #000 0px, transparent 1px, transparent 2px, #000 3px);
+  mix-blend-mode:multiply;
+}
+.wrap{
+  max-width:1360px;
+  margin:0 auto;
+  padding:28px 20px 80px;
+}
+header.top{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:20px;
+  border-bottom:3px double var(--ink);
+  padding-bottom:14px;
+  margin-bottom:22px;
+  flex-wrap:wrap;
+}
+header.top .eyebrow{
+  font-family:'DotGothic16', monospace;
+  font-size:11px;
+  letter-spacing:0.28em;
+  color:var(--ink-soft);
+  text-transform:uppercase;
+  margin-bottom:6px;
+}
+header.top h1{
+  font-family:'DotGothic16', sans-serif;
+  font-weight:800;
+  font-size:clamp(26px,4vw,40px);
+  margin:0;
+  letter-spacing:0.03em;
+}
+header.top .sub{
+  font-size:12.5px;
+  color:var(--ink-soft);
+  max-width:420px;
+  line-height:1.6;
+  text-align:right;
+}
+.stamp{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border:2px solid var(--stamp-red);
+  color:var(--stamp-red);
+  font-family:'DotGothic16', monospace;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.12em;
+  padding:3px 9px;
+  border-radius:999px;
+  transform:rotate(-3deg);
+  opacity:0.85;
+}
+
+.layout{
+  display:grid;
+  grid-template-columns:minmax(340px,460px) 1fr;
+  gap:26px;
+  align-items:start;
+}
+@media (max-width:920px){
+  .layout{grid-template-columns:1fr;}
+}
+
+/* ---------- FORM PANEL ---------- */
+.panel{
+  background:var(--paper-card);
+  border:1px solid var(--rule);
+  box-shadow:0 1px 0 rgba(0,0,0,0.05), 0 10px 24px -18px rgba(0,0,0,0.4);
+}
+.tabbar{
+  display:flex;
+  flex-wrap:wrap;
+  border-bottom:1px solid var(--rule);
+  background:#dcedf7;
+}
+.tabbar button{
+  flex:1 1 auto;
+  min-width:88px;
+  background:transparent;
+  border:none;
+  border-right:1px solid var(--rule);
+  padding:10px 6px;
+  font-family:'DotGothic16', monospace;
+  font-size:10.5px;
+  letter-spacing:0.06em;
+  color:var(--ink-soft);
+  cursor:pointer;
+  text-align:center;
+  line-height:1.5;
+}
+.tabbar button:last-child{border-right:none;}
+.tabbar button b{display:block;font-size:13px;color:var(--ink);font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;}
+.tabbar button.active{
+  background:var(--paper-card);
+  color:var(--moss-deep);
+  box-shadow:inset 0 -2px 0 var(--moss);
+}
+.tabbar button.active b{color:var(--moss-deep);}
+
+.tabpage{display:none;padding:20px 20px 24px;}
+.tabpage.active{display:block;}
+
+.field{margin-bottom:16px;}
+.field label{
+  display:block;
+  font-size:11.5px;
+  font-weight:700;
+  color:var(--moss-deep);
+  letter-spacing:0.04em;
+  margin-bottom:5px;
+}
+.field .hint{font-size:10.5px;color:var(--ink-soft);margin-top:4px;line-height:1.5;}
+input[type=text], input[type=number], textarea, select{
+  width:100%;
+  background:#fffdf6;
+  border:1px solid var(--rule);
+  border-radius:var(--card-radius);
+  padding:8px 9px;
+  font-family:'Zen Kaku Gothic New',sans-serif;
+  font-size:13.5px;
+  color:var(--ink);
+}
+textarea{resize:vertical;min-height:52px;}
+input:focus, textarea:focus, select:focus{
+  outline:2px solid var(--moss);
+  outline-offset:1px;
+}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+
+.statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.statitem{
+  border:1px solid var(--rule);
+  background:#fffdf6;
+  padding:8px 10px;
+  border-radius:var(--card-radius);
+}
+.statitem .lbl{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:'DotGothic16',monospace;
+  font-size:11px;color:var(--ink-soft);margin-bottom:4px;
+}
+.statitem .lbl b{color:var(--ink);font-size:12.5px;}
+.statitem input[type=number]{border:none;background:transparent;padding:0;width:52px;font-family:'DotGothic16',monospace;font-size:18px;font-weight:700;color:var(--moss-deep);text-align:right;}
+.statitem .lbl{align-items:baseline;}
+.statitem input[type=range]{width:100%;margin-top:2px;height:14px;}
+.stattotal{
+  margin-top:10px;text-align:right;font-family:'DotGothic16',monospace;font-size:12px;color:var(--ink-soft);
+}
+.stattotal b{color:var(--ink);font-size:15px;}
+
+.imgdrop{
+  border:1.5px dashed var(--rule);
+  background:#fffdf6;
+  border-radius:var(--card-radius);
+  padding:14px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.imgdrop .thumb{
+  width:64px;height:64px;
+  border:1px solid var(--rule);
+  background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 0 0/12px 12px;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+  flex-shrink:0;
+}
+.imgdrop .thumb img{width:100%;height:100%;object-fit:contain;}
+.imgdrop .txt{font-size:11.5px;color:var(--ink-soft);flex:1;}
+.filebtn{
+  display:inline-block;
+  font-family:'DotGothic16',monospace;
+  font-size:11px;
+  border:1px solid var(--moss);
+  color:var(--moss-deep);
+  background:#fbecec;
+  padding:6px 10px;
+  cursor:pointer;
+  border-radius:2px;
+  margin-top:6px;
+}
+.filebtn input{display:none;}
+
+.checkgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 12px;}
+.checkgrid label{
+  display:flex;align-items:center;gap:6px;
+  font-size:12.5px;font-weight:400;color:var(--ink);
+  margin-bottom:0;
+}
+.checkgrid input{width:auto;}
+
+.abilblock{border:1px solid var(--rule);background:#fffdf6;padding:10px;border-radius:2px;margin-bottom:10px;}
+.abilblock .tag{font-family:'DotGothic16',monospace;font-size:10px;color:var(--ochre);letter-spacing:0.08em;margin-bottom:6px;display:block;}
+
+.miniTable{width:100%;border-collapse:collapse;margin-bottom:8px;}
+.miniTable th{
+  font-family:'DotGothic16',monospace;font-size:10px;color:var(--ink-soft);
+  text-align:left;border-bottom:1px solid var(--rule);padding:3px 4px;font-weight:600;
+}
+.miniTable td{padding:3px 4px;border-bottom:1px solid #e6dfc9;}
+.miniTable input{padding:5px 6px;font-size:12.5px;}
+.miniTable .delrow{
+  background:none;border:none;color:var(--stamp-red);cursor:pointer;font-size:15px;line-height:1;
+}
+.addbtn{
+  font-family:'DotGothic16',monospace;font-size:11px;
+  background:var(--moss-deep);color:#f7f2e3;
+  border:none;padding:6px 12px;border-radius:2px;cursor:pointer;letter-spacing:0.04em;
+}
+.addbtn:hover{background:var(--moss);}
+.bulkbox{
+  margin-top:10px;padding:10px;border:1px dashed var(--rule);background:#fbf7ea;border-radius:2px;
+}
+.bulkbox label{display:block;font-size:10.5px;color:var(--ink-soft);margin-bottom:5px;}
+.bulkbox textarea{min-height:70px;font-family:'DotGothic16',monospace;font-size:12px;}
+
+.evoRow{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.evoRow .arrow{color:var(--ochre);font-size:18px;flex-shrink:0;}
+
+fieldset{border:1px solid var(--rule);border-radius:2px;padding:10px 12px;margin:0 0 14px;}
+legend{font-family:'DotGothic16',monospace;font-size:11px;color:var(--moss-deep);padding:0 6px;}
+.radiorow{display:flex;gap:16px;align-items:center;font-size:12.5px;}
+.radiorow label{display:flex;align-items:center;gap:6px;font-weight:400;}
+.radiorow input{width:auto;}
+input[type=range]{width:100%;accent-color:var(--moss);}
+input[type=checkbox], input[type=radio]{accent-color:var(--moss);}
+.ratiobar{
+  display:flex;height:14px;border-radius:999px;overflow:hidden;border:1px solid var(--rule);margin-top:6px;
+}
+.ratiobar .m{background:#3d6fa8;}
+.ratiobar .f{background:#c25a7c;}
+.ratiolabels{display:flex;justify-content:space-between;font-family:'DotGothic16',monospace;font-size:10.5px;margin-top:4px;color:var(--ink-soft);}
+
+audio{width:100%;margin-top:8px;}
+
+/* ---------- PREVIEW CARD ---------- */
+.previewSticky{position:sticky;top:20px;}
+
+.toolbar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  margin-bottom:14px;
+  padding:10px 12px;
+  background:rgba(255,255,255,0.6);
+  border:1px solid var(--rule);
+  border-radius:10px;
+}
+.toolbar .filebtn{margin-top:0;}
+.toolbar .filebtn.accent{background:#fbecec;border-color:var(--moss);}
+.toolbarNote{
+  flex-basis:100%;
+  font-size:10.5px;color:var(--ink-soft);
+}
+
+.card{
+  position:relative;
+  border-radius:20px;
+  padding:10px;
+  background:linear-gradient(155deg,#ffe1c9 0%, var(--moss) 45%, var(--moss-deep) 100%);
+  box-shadow:0 22px 44px -20px rgba(0,0,0,0.5), 0 2px 0 rgba(255,255,255,0.5) inset;
+}
+.cardframe{
+  position:relative;
+  background:var(--paper-card);
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,0.08);
+  overflow:hidden;
+}
+.cardframe::before{
+  content:"";
+  position:absolute;inset:6px;
+  border:1.5px solid rgba(34,30,28,0.14);
+  border-radius:9px;
+  pointer-events:none;
+}
+.cardhead{
+  position:relative;
+  padding:18px 22px 12px;
+  border-bottom:2px solid var(--ink);
+  background:
+    radial-gradient(120% 160% at 0% 0%, rgba(238,127,123,0.16), transparent 60%);
+}
+.cardhead .no{
+  font-family:'DotGothic16',monospace;font-size:12px;color:var(--ink-soft);letter-spacing:0.08em;
+}
+.cardhead h2{
+  font-family:'DotGothic16',sans-serif;font-size:30px;font-weight:800;margin:2px 0 4px;
+}
+.cardhead .genusrow{font-size:11.5px;color:var(--ink-soft);}
+.typebadges{display:flex;gap:6px;margin-top:8px;}
+.typebadge{
+  font-family:'DotGothic16',monospace;
+  font-size:10.5px;font-weight:700;color:#fff;
+  padding:3px 10px;border-radius:999px;letter-spacing:0.05em;
+  box-shadow:0 1px 0 rgba(0,0,0,0.15);
+}
+
+.cardbody{padding:16px 22px 22px;}
+.visualRow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+.sprite{
+  border-radius:10px;
+  border:1px solid var(--rule);background:repeating-conic-gradient(#eaf3fb 0% 25%, #ffffff 0% 50%) 0 0/14px 14px;
+  display:flex;align-items:center;justify-content:center;
+  aspect-ratio:1/1;position:relative;overflow:hidden;
+}
+.sprite img{width:88%;height:88%;object-fit:contain;}
+.sprite .spriteimg{
+  width:88%;height:88%;
+  background-size:contain;
+  background-position:center;
+  background-repeat:no-repeat;
+}
+.sprite .cap{
+  position:absolute;bottom:0;left:0;right:0;
+  font-family:'DotGothic16',monospace;font-size:9.5px;
+  background:rgba(36,32,25,0.72);color:#f7f2e3;text-align:center;padding:2px 0;letter-spacing:0.08em;
+}
+.sprite.empty{color:var(--ink-soft);font-size:11px;font-family:'DotGothic16',monospace;}
+
+.section{margin-bottom:18px;}
+.section h3{
+  font-family:'DotGothic16',monospace;font-size:11px;letter-spacing:0.12em;color:var(--moss-deep);
+  border-bottom:1px solid var(--rule);padding-bottom:5px;margin:0 0 10px;text-transform:uppercase;
+}
+.statbars{display:flex;flex-direction:column;gap:6px;}
+.statbar-row{display:grid;grid-template-columns:26px 1fr 34px;align-items:center;gap:8px;font-family:'DotGothic16',monospace;font-size:11px;}
+.statbar-row .track{height:9px;background:#e6dfc9;border-radius:999px;overflow:hidden;border:1px solid var(--rule);}
+.statbar-row .fill{height:100%;background:linear-gradient(90deg,var(--moss),var(--moss-deep));}
+.statbar-row .val{text-align:right;}
+.statTotalLine{margin-top:6px;text-align:right;font-family:'DotGothic16',monospace;font-size:11px;color:var(--ink-soft);}
+
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:12.5px;}
+.kv .k{font-family:'DotGothic16',monospace;font-size:10px;color:var(--ink-soft);display:block;}
+.kv .v{font-weight:700;}
+
+.abilcard{border-left:3px solid var(--ochre);padding:6px 0 6px 10px;margin-bottom:8px;}
+.abilcard .nm{font-weight:700;font-size:13px;}
+.abilcard .nm.hidden{color:var(--stamp-red);}
+.abilcard .ds{font-size:11.5px;color:var(--ink-soft);line-height:1.55;margin-top:2px;}
+
+.evochain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12.5px;}
+.evochain .stg{
+  background:#fbecec;border:1px solid var(--moss);color:var(--moss-deep);
+  padding:4px 10px;border-radius:999px;font-weight:700;
+}
+.evochain .cond{font-size:10.5px;color:var(--ink-soft);font-family:'DotGothic16',monospace;}
+.evochain .ar{color:var(--ochre);}
+
+table.movetable{width:100%;border-collapse:collapse;font-size:12px;}
+table.movetable th{
+  font-family:'DotGothic16',monospace;font-size:10px;color:var(--ink-soft);
+  text-align:left;border-bottom:1px solid var(--ink);padding:4px 4px;
+}
+table.movetable td{padding:4px 4px;border-bottom:1px solid #e6dfc9;}
+.scrolltable{max-height:190px;overflow-y:auto;border:1px solid var(--rule);}
+
+.evbadges{display:flex;flex-wrap:wrap;gap:6px;}
+.evbadge{
+  font-family:'DotGothic16',monospace;font-size:11px;
+  background:#fdf3df;border:1px solid var(--ochre);color:#7a5a20;
+  padding:3px 8px;border-radius:2px;
+}
+.egglist{display:flex;flex-wrap:wrap;gap:6px;}
+.eggchip{
+  font-size:11px;background:#fbecec;border:1px solid var(--moss);color:var(--moss-deep);
+  padding:3px 9px;border-radius:999px;
+}
+.crybox{
+  border:1px solid var(--rule);background:#fffdf6;padding:10px;text-align:center;
+}
+.crybox .none{font-size:11.5px;color:var(--ink-soft);}
+
+.emptynote{font-size:11.5px;color:var(--ink-soft);font-style:italic;}
+.dexdesc{
+  position:relative;
+  background:#fff5f4;
+  border-left:4px solid var(--moss);
+  border-top:1px solid var(--rule);
+  border-right:1px solid var(--rule);
+  border-bottom:1px solid var(--rule);
+  border-radius:0 3px 3px 0;
+  padding:12px 14px 12px 16px;
+  margin-bottom:18px;
+  font-family:'Zen Kaku Gothic New',sans-serif;
+  font-size:14px;
+  line-height:1.9;
+  color:var(--ink);
+}
+.dexdesc::before{
+  content:"図鑑説明";
+  position:absolute;top:-9px;left:12px;
+  background:var(--moss);
+  color:#fff;
+  font-family:'DotGothic16',monospace;
+  font-size:9.5px;
+  letter-spacing:0.1em;
+  padding:2px 8px;
+  border-radius:999px;
+}
+footer.note{
+  margin-top:26px;font-size:11px;color:var(--ink-soft);line-height:1.7;
+  border-top:1px solid var(--rule);padding-top:12px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="eyebrow">CREATURE DEX BUILDER / 標本図鑑エディタ</div>
+      <h1>なんでも種族値シミュレーター</h1>
+    </div>
+    <div class="sub">
+      画像・種族値・特性・タイプ・進化・技・タマゴ情報・鳴き声などを入力すると、右側に標本カードとして自動生成されます。すべてブラウザ内で完結し、データは保存されません。
+      <div style="margin-top:8px;"><span class="stamp">FIELD NOTE No.001</span></div>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- ===================== FORM PANEL ===================== -->
+    <div class="panel">
+      <div class="tabbar">
+        <button class="tab-btn active" data-tab="t1"><b>基本</b>01</button>
+        <button class="tab-btn" data-tab="t2"><b>種族値</b>02</button>
+        <button class="tab-btn" data-tab="t3"><b>特性/型</b>03</button>
+        <button class="tab-btn" data-tab="t4"><b>進化</b>04</button>
+        <button class="tab-btn" data-tab="t5"><b>わざ</b>05</button>
+        <button class="tab-btn" data-tab="t6"><b>図鑑</b>06</button>
+      </div>
+
+      <!-- TAB1: 基本 -->
+      <div class="tabpage active" id="t1">
+        <div class="field">
+          <label>図鑑番号</label>
+          <input type="text" id="dexno" value="001" placeholder="例: 001">
+        </div>
+        <div class="field">
+          <label>名前</label>
+          <input type="text" id="name" placeholder="例: フシギダネ" value="">
+        </div>
+        <div class="field">
+          <label>分類（〇〇ポケモン的な呼び名）</label>
+          <input type="text" id="genus" placeholder="例: たねポケモン">
+        </div>
+        <div class="field">
+          <label>図鑑説明</label>
+          <textarea id="dexDescription" placeholder="生態・性質・伝承などを入力" style="min-height:80px;"></textarea>
+          <div class="hint">生態・性質・伝承などのフレーバーテキスト。標本カードの一番目立つ位置に表示されます。</div>
+        </div>
+        <div class="field">
+          <label>通常画像</label>
+          <div class="imgdrop">
+            <div class="thumb" id="thumbNormal"><span style="font-size:9px;color:#999;">NO IMG</span></div>
+            <div class="txt">
+              PNG/JPG推奨。透過PNGだと標本カードに馴染みます。
+              <label class="filebtn">画像を選択<input type="file" accept="image/*" id="imgNormal"></label>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label>色違い画像（任意）</label>
+          <div class="imgdrop">
+            <div class="thumb" id="thumbShiny"><span style="font-size:9px;color:#999;">NO IMG</span></div>
+            <div class="txt">
+              未設定の場合は通常画像のみ表示されます。
+              <label class="filebtn">画像を選択<input type="file" accept="image/*" id="imgShiny"></label>
+            </div>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>高さ (m)</label><input type="number" id="height" step="0.01" min="0" placeholder="0.70"></div>
+          <div class="field"><label>おもさ (kg)</label><input type="number" id="weight" step="0.1" min="0" placeholder="6.9"></div>
+        </div>
+        <fieldset>
+          <legend>性別比率</legend>
+          <div class="radiorow">
+            <label><input type="radio" name="genderMode" value="ratio" checked> 性別あり</label>
+            <label><input type="radio" name="genderMode" value="unknown"> 性別不明</label>
+          </div>
+          <div id="genderRatioBox" style="margin-top:8px;">
+            <input type="range" id="maleRatio" min="0" max="100" step="12.5" value="50">
+            <div class="ratiobar"><div class="m" id="ratioM" style="width:50%"></div><div class="f" id="ratioF" style="width:50%"></div></div>
+            <div class="ratiolabels"><span id="ratioMlabel">♂ 50%</span><span id="ratioFlabel">♀ 50%</span></div>
+          </div>
+        </fieldset>
+      </div>
+
+      <!-- TAB2: 種族値 -->
+      <div class="tabpage" id="t2">
+        <div class="field">
+          <div class="statgrid" id="statInputs">
+            <!-- filled by JS -->
+          </div>
+          <div class="stattotal">合計種族値: <b id="statTotalLabel">0</b></div>
+        </div>
+        <fieldset>
+          <legend>倒したときにもらえる努力値</legend>
+          <div class="statgrid" id="evInputs"></div>
+        </fieldset>
+        <div class="field">
+          <label>基礎経験値</label>
+          <input type="number" id="baseExp" min="0" placeholder="例: 64">
+        </div>
+      </div>
+
+      <!-- TAB3: 特性/タイプ -->
+      <div class="tabpage" id="t3">
+        <fieldset>
+          <legend>タイプ</legend>
+          <div class="row2">
+            <div class="field"><label>タイプ1</label><select id="type1"></select></div>
+            <div class="field"><label>タイプ2（任意）</label><select id="type2"><option value="">－ なし －</option></select></div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>特性</legend>
+          <div class="abilblock">
+            <span class="tag">特性1</span>
+            <div class="field" style="margin-bottom:8px;"><input type="text" id="abil1name" placeholder="例: しんりょく"></div>
+            <textarea id="abil1desc" placeholder="例: HPが1/3以下になると、くさタイプの技の威力が上がる。"></textarea>
+          </div>
+          <div class="abilblock">
+            <span class="tag">特性2（任意）</span>
+            <div class="field" style="margin-bottom:8px;"><input type="text" id="abil2name" placeholder="特性名"></div>
+            <textarea id="abil2desc" placeholder="効果の説明"></textarea>
+          </div>
+          <div class="abilblock">
+            <span class="tag" style="color:var(--stamp-red);">隠れ特性（任意）</span>
+            <div class="field" style="margin-bottom:8px;"><input type="text" id="abil3name" placeholder="特性名"></div>
+            <textarea id="abil3desc" placeholder="効果の説明"></textarea>
+          </div>
+        </fieldset>
+      </div>
+
+      <!-- TAB4: 進化 -->
+      <div class="tabpage" id="t4">
+        <div class="field">
+          <label>進化段階</label>
+          <select id="evoStageNum">
+            <option value="1">単一種（進化なし）</option>
+            <option value="2">2段階目</option>
+            <option value="3">3段階目</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>進化チェーン（進化前 → 現在 → 進化先 の順で追加）</label>
+          <div id="evoChainInputs"></div>
+          <button class="addbtn" id="addEvoStage" type="button">+ 段階を追加</button>
+        </div>
+        <p class="hint">各段階名の下の欄に「進化条件」（例: Lv.16／なつき度220以上／〇〇の石を使う 等）を書き込んでください。矢印の左側の条件は、その段階からひとつ先へ進化するための条件です。</p>
+      </div>
+
+      <!-- TAB5: わざ -->
+      <div class="tabpage" id="t5">
+        <div class="field">
+          <label>レベルアップで覚える技</label>
+          <div class="scrolltable">
+            <table class="miniTable" id="levelMoveTable">
+              <thead><tr><th style="width:22%;">Lv</th><th>技名</th><th style="width:16px;"></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button class="addbtn" id="addLevelMove" type="button">+ 行を追加</button>
+          <div class="bulkbox">
+            <label>一括入力（1行ずつ「レベル-技名」で入力）</label>
+            <textarea id="levelMoveBulk" placeholder="1-たいあたり&#10;5-でんこうせっか&#10;9-にどげり"></textarea>
+            <button class="addbtn" id="applyLevelBulk" type="button" style="margin-top:6px;">一括で追加する</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>わざマシンで覚える技</label>
+          <div class="scrolltable">
+            <table class="miniTable" id="tmMoveTable">
+              <thead><tr><th style="width:26%;">No.</th><th>技名</th><th style="width:16px;"></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button class="addbtn" id="addTmMove" type="button">+ 行を追加</button>
+          <div class="bulkbox">
+            <label>一括入力（1行ずつ「No.-技名」で入力）</label>
+            <textarea id="tmMoveBulk" placeholder="01-しんそく&#10;02-つるぎのまい&#10;10-じしん"></textarea>
+            <button class="addbtn" id="applyTmBulk" type="button" style="margin-top:6px;">一括で追加する</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB6: 図鑑データ -->
+      <div class="tabpage" id="t6">
+        <fieldset>
+          <legend>タマゴグループ</legend>
+          <div class="checkgrid" id="eggGroupChecks"></div>
+        </fieldset>
+        <div class="field">
+          <label>ふ化に必要な歩数</label>
+          <input type="number" id="hatchSteps" min="0" placeholder="例: 5120">
+        </div>
+        <div class="field">
+          <label>鳴き声ファイル（mp3 / wav 等）</label>
+          <div class="imgdrop">
+            <div class="txt" style="width:100%;">
+              対応形式: mp3, wav, ogg など。アップロード後、プレビューカードで再生できます。
+              <label class="filebtn">音声ファイルを選択<input type="file" accept="audio/*" id="cryFile"></label>
+              <div id="cryFileName" style="margin-top:6px;font-family:'DotGothic16',monospace;font-size:11px;color:var(--ink-soft);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <!-- ===================== /FORM PANEL ===================== -->
+
+
+    <!-- ===================== PREVIEW CARD ===================== -->
+    <div class="previewSticky">
+
+      <div class="toolbar">
+        <button class="filebtn" id="toggleShiny" type="button">色違い表示 切替</button>
+        <button class="filebtn accent" id="exportSimple" type="button">画像保存（簡易版）</button>
+        <button class="filebtn accent" id="exportFull" type="button">画像保存（全項目）</button>
+        <div class="toolbarNote">※わざ・タマゴ情報・鳴き声は画像に含まれません</div>
+      </div>
+
+      <div class="card">
+        <div class="cardframe">
+        <div class="cardhead">
+          <div class="no" id="pv-no">No. 001</div>
+          <h2 id="pv-name">なまえ未設定</h2>
+          <div class="genusrow" id="pv-genus">分類未設定</div>
+          <div class="typebadges" id="pv-types"></div>
+        </div>
+        <div class="cardbody">
+
+          <div class="visualRow" style="grid-template-columns:1fr;">
+            <div class="sprite" id="pv-spriteMain" style="aspect-ratio:16/10;"><span>画像未設定</span></div>
+          </div>
+
+          <div class="dexdesc" id="pv-description"><span class="emptynote">図鑑説明は未入力です</span></div>
+
+          <div class="section">
+            <h3>基本データ</h3>
+            <div class="kv">
+              <div><span class="k">たかさ</span><span class="v" id="pv-height">－</span></div>
+              <div><span class="k">おもさ</span><span class="v" id="pv-weight">－</span></div>
+              <div><span class="k">性別比率</span><span class="v" id="pv-gender">－</span></div>
+              <div><span class="k">基礎経験値</span><span class="v" id="pv-baseexp">－</span></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>種族値（合計 <span id="pv-stattotal">0</span>）</h3>
+            <div class="statbars" id="pv-statbars"></div>
+          </div>
+
+          <div class="section">
+            <h3>倒したときに得られる努力値</h3>
+            <div class="evbadges" id="pv-evyield"><span class="emptynote">未設定</span></div>
+          </div>
+
+          <div class="section">
+            <h3>特性</h3>
+            <div id="pv-abilities"><span class="emptynote">未設定</span></div>
+          </div>
+
+          <div class="section">
+            <h3>進化</h3>
+            <div class="evochain" id="pv-evochain"><span class="emptynote">未設定</span></div>
+          </div>
+
+          <div class="section export-hide">
+            <h3>レベルアップ技</h3>
+            <div class="scrolltable">
+              <table class="movetable"><thead><tr><th style="width:20%;">Lv</th><th>技名</th></tr></thead><tbody id="pv-levelmoves"></tbody></table>
+            </div>
+          </div>
+
+          <div class="section export-hide">
+            <h3>わざマシン</h3>
+            <div class="scrolltable">
+              <table class="movetable"><thead><tr><th style="width:28%;">No.</th><th>技名</th></tr></thead><tbody id="pv-tmmoves"></tbody></table>
+            </div>
+          </div>
+
+          <div class="section export-hide">
+            <h3>タマゴグループ / ふ化歩数</h3>
+            <div class="egglist" id="pv-egggroups"><span class="emptynote">未設定</span></div>
+            <div class="kv" style="margin-top:8px;"><div><span class="k">ふ化歩数</span><span class="v" id="pv-hatch">－</span></div></div>
+          </div>
+
+          <div class="section export-hide" style="margin-bottom:0;">
+            <h3>鳴き声</h3>
+            <div class="crybox" id="pv-crybox"><span class="none">音声ファイル未設定</span></div>
+          </div>
+
+        </div>
+        </div>
+      </div>
+
+      <footer class="note">
+        ※ このツールは架空の生き物データを自由に作成・整理するための汎用エディタです。実在の作品・キャラクターの名称や画像を用いる場合は、著作権・商標に配慮のうえご利用ください。<br>
+        ※ 入力内容はページを閉じると消えます。必要に応じてスクリーンショット等で保存してください。
+      </footer>
+    </div>
+    <!-- ===================== /PREVIEW CARD ===================== -->
+
+  </div>
+</div>
+
+<script>
+/* ---------------- master data ---------------- */
+const TYPES = [
+  ["ノーマル","#A8A77A"],["ほのお","#EE8130"],["みず","#6390F0"],["でんき","#F7D02C"],
+  ["くさ","#7AC74C"],["こおり","#96D9D6"],["かくとう","#C22E28"],["どく","#A33EA1"],
+  ["じめん","#E2BF65"],["ひこう","#A98FF3"],["エスパー","#F95587"],["むし","#A6B91A"],
+  ["いわ","#B6A136"],["ゴースト","#735797"],["ドラゴン","#6F35FC"],["あく","#705746"],
+  ["はがね","#B7B7CE"],["フェアリー","#D685AD"]
+];
+const EGG_GROUPS = [
+  "怪獣","水中1","昆虫","陸上","妖精","飛行","不定形","植物",
+  "水中2","水中3","鉱物","人型","ドラゴン","タマゴ未発見","メタモン"
+];
+const STAT_LABELS = [["H","HP"],["A","こうげき"],["B","ぼうぎょ"],["C","とくこう"],["D","とくぼう"],["S","すばやさ"]];
+
+let state = {
+  imgNormal:null, imgShiny:null, showShiny:false, cryData:null, cryName:null,
+  stats:{H:45,A:49,B:49,C:65,D:65,S:45},
+  ev:{H:0,A:0,B:0,C:0,D:0,S:0},
+  abilities:[{name:"",desc:""},{name:"",desc:""},{name:"",desc:""}],
+  evoStages:[{name:"",cond:""}],
+  levelMoves:[], tmMoves:[], eggGroups:[]
+};
+
+/* ---------------- tab switching ---------------- */
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".tabpage").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* ---------------- build type selects ---------------- */
+const type1Sel = document.getElementById("type1");
+const type2Sel = document.getElementById("type2");
+TYPES.forEach(([name])=>{
+  const o1=document.createElement("option"); o1.value=name; o1.textContent=name; type1Sel.appendChild(o1);
+  const o2=document.createElement("option"); o2.value=name; o2.textContent=name; type2Sel.appendChild(o2);
+});
+
+/* ---------------- build stat inputs ---------------- */
+const statInputsEl = document.getElementById("statInputs");
+const evInputsEl = document.getElementById("evInputs");
+STAT_LABELS.forEach(([key,label])=>{
+  const div=document.createElement("div"); div.className="statitem";
+  div.innerHTML=`
+    <div class="lbl"><b>${key}</b><span>${label}</span><input type="number" min="1" max="255" data-stat="${key}" value="${state.stats[key]}"></div>
+    <input type="range" min="1" max="255" step="1" data-statrange="${key}" value="${state.stats[key]}">`;
+  statInputsEl.appendChild(div);
+
+  const evDiv=document.createElement("div"); evDiv.className="statitem";
+  evDiv.innerHTML=`
+    <div class="lbl"><b>${key}</b><span>努力値</span><input type="number" min="0" max="252" data-ev="${key}" value="0"></div>
+    <input type="range" min="0" max="252" step="4" data-evrange="${key}" value="0">`;
+  evInputsEl.appendChild(evDiv);
+});
+
+/* ---------------- build egg group checkboxes ---------------- */
+const eggGroupChecksEl = document.getElementById("eggGroupChecks");
+EGG_GROUPS.forEach(name=>{
+  const lbl=document.createElement("label");
+  lbl.innerHTML=`<input type="checkbox" value="${name}"> ${name}`;
+  eggGroupChecksEl.appendChild(lbl);
+});
+
+/* ---------------- image handling ---------------- */
+function handleImageInput(inputEl, thumbEl, key){
+  inputEl.addEventListener("change", e=>{
+    const file=e.target.files[0];
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      state[key]=ev.target.result;
+      thumbEl.innerHTML=`<img src="${ev.target.result}" alt="">`;
+      render();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+handleImageInput(document.getElementById("imgNormal"), document.getElementById("thumbNormal"), "imgNormal");
+handleImageInput(document.getElementById("imgShiny"), document.getElementById("thumbShiny"), "imgShiny");
+
+document.getElementById("cryFile").addEventListener("change", e=>{
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    state.cryData=ev.target.result;
+    state.cryName=file.name;
+    document.getElementById("cryFileName").textContent="選択中: "+file.name;
+    render();
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ---------------- gender ---------------- */
+document.querySelectorAll('input[name="genderMode"]').forEach(r=>{
+  r.addEventListener("change", ()=>{
+    document.getElementById("genderRatioBox").style.display = document.querySelector('input[name="genderMode"]:checked').value==="ratio" ? "block":"none";
+    render();
+  });
+});
+const maleRatioInput = document.getElementById("maleRatio");
+maleRatioInput.addEventListener("input", ()=>{
+  const m = parseFloat(maleRatioInput.value);
+  document.getElementById("ratioM").style.width = m+"%";
+  document.getElementById("ratioF").style.width = (100-m)+"%";
+  document.getElementById("ratioMlabel").textContent = "♂ "+m+"%";
+  document.getElementById("ratioFlabel").textContent = "♀ "+(100-m)+"%";
+  render();
+});
+
+/* ---------------- evolution chain rows ---------------- */
+const evoChainInputsEl = document.getElementById("evoChainInputs");
+function renderEvoInputs(){
+  evoChainInputsEl.innerHTML="";
+  state.evoStages.forEach((stage, i)=>{
+    const row=document.createElement("div");
+    row.className="evoRow";
+    row.innerHTML=`
+      ${i>0 ? '<span class="arrow">→</span>' : ''}
+      <div style="flex:1;">
+        <input type="text" placeholder="例: フシギダネ" data-evoname="${i}" value="${stage.name}" style="margin-bottom:4px;">
+        <input type="text" placeholder="例: Lv.16 でフシギソウに進化" data-evocond="${i}" value="${stage.cond}">
+      </div>
+      ${state.evoStages.length>1 ? `<button type="button" class="miniTable delrow" data-delevo="${i}" style="align-self:flex-start;">✕</button>` : ''}
+    `;
+    evoChainInputsEl.appendChild(row);
+  });
+  evoChainInputsEl.querySelectorAll("[data-evoname]").forEach(inp=>{
+    inp.addEventListener("input", e=>{ state.evoStages[+e.target.dataset.evoname].name = e.target.value; render(); });
+  });
+  evoChainInputsEl.querySelectorAll("[data-evocond]").forEach(inp=>{
+    inp.addEventListener("input", e=>{ state.evoStages[+e.target.dataset.evocond].cond = e.target.value; render(); });
+  });
+  evoChainInputsEl.querySelectorAll("[data-delevo]").forEach(btn=>{
+    btn.addEventListener("click", e=>{
+      state.evoStages.splice(+e.target.dataset.delevo,1);
+      renderEvoInputs(); render();
+    });
+  });
+}
+document.getElementById("addEvoStage").addEventListener("click", ()=>{
+  if(state.evoStages.length>=3) return;
+  state.evoStages.push({name:"",cond:""});
+  renderEvoInputs(); render();
+});
+renderEvoInputs();
+
+/* ---------------- move tables ---------------- */
+function renderMoveTable(tbodySelector, list, cols){
+  const tbody=document.querySelector(tbodySelector);
+  tbody.innerHTML="";
+  list.forEach((row,i)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td><input type="text" data-col="${cols[0]}" data-i="${i}" value="${row[cols[0]]}" style="width:100%;"></td>
+      <td><input type="text" data-col="${cols[1]}" data-i="${i}" value="${row[cols[1]]}" style="width:100%;"></td>
+      <td><button type="button" class="delrow" data-del="${i}">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+function wireMoveTable(tbodySelector, list, cols, rerenderFn){
+  document.querySelector(tbodySelector).addEventListener("input", e=>{
+    if(e.target.dataset.col){
+      list[+e.target.dataset.i][e.target.dataset.col] = e.target.value;
+      render();
+    }
+  });
+  document.querySelector(tbodySelector).addEventListener("click", e=>{
+    if(e.target.dataset.del!==undefined){
+      list.splice(+e.target.dataset.del,1);
+      rerenderFn(); render();
+    }
+  });
+}
+function rerenderLevel(){ renderMoveTable("#levelMoveTable tbody", state.levelMoves, ["lv","move"]); }
+function rerenderTm(){ renderMoveTable("#tmMoveTable tbody", state.tmMoves, ["no","move"]); }
+wireMoveTable("#levelMoveTable tbody", state.levelMoves, ["lv","move"], rerenderLevel);
+wireMoveTable("#tmMoveTable tbody", state.tmMoves, ["no","move"], rerenderTm);
+
+document.getElementById("addLevelMove").addEventListener("click", ()=>{
+  state.levelMoves.push({lv:"",move:""}); rerenderLevel(); render();
+});
+document.getElementById("addTmMove").addEventListener("click", ()=>{
+  state.tmMoves.push({no:"",move:""}); rerenderTm(); render();
+});
+
+/* ---------------- bulk move parsing ("番号-技名" 形式を1行ずつ) ---------------- */
+function parseBulkMoveLines(text){
+  return text.split(/\r?\n/)
+    .map(l=>l.trim())
+    .filter(Boolean)
+    .map(line=>{
+      // 区切り文字: 半角ハイフン, 全角ハイフン/長音, コロン, タブ
+      const m = line.match(/^([^\-－ー:：\t]*)[\-－ー:：\t]+\s*(.+)$/);
+      if(m){
+        return [m[1].trim(), m[2].trim()];
+      }
+      return ["", line]; // 区切りが見つからない場合は技名のみとして扱う
+    });
+}
+document.getElementById("applyLevelBulk").addEventListener("click", ()=>{
+  const ta=document.getElementById("levelMoveBulk");
+  const parsed=parseBulkMoveLines(ta.value);
+  if(parsed.length===0) return;
+  parsed.forEach(([a,b])=>state.levelMoves.push({lv:a, move:b}));
+  ta.value="";
+  rerenderLevel(); render();
+});
+document.getElementById("applyTmBulk").addEventListener("click", ()=>{
+  const ta=document.getElementById("tmMoveBulk");
+  const parsed=parseBulkMoveLines(ta.value);
+  if(parsed.length===0) return;
+  parsed.forEach(([a,b])=>state.tmMoves.push({no:a, move:b}));
+  ta.value="";
+  rerenderTm(); render();
+});
+
+/* ---------------- generic text/number field binding ---------------- */
+function bindText(id, cb){
+  document.getElementById(id).addEventListener("input", e=>{ cb(e.target.value); render(); });
+}
+bindText("dexno", ()=>{});
+bindText("name", ()=>{});
+bindText("genus", ()=>{});
+bindText("dexDescription", ()=>{});
+bindText("height", ()=>{});
+bindText("weight", ()=>{});
+bindText("baseExp", ()=>{});
+bindText("hatchSteps", ()=>{});
+bindText("abil1name", ()=>{}); bindText("abil1desc", ()=>{});
+bindText("abil2name", ()=>{}); bindText("abil2desc", ()=>{});
+bindText("abil3name", ()=>{}); bindText("abil3desc", ()=>{});
+type1Sel.addEventListener("change", render);
+type2Sel.addEventListener("change", render);
+document.getElementById("evoStageNum").addEventListener("change", render);
+
+statInputsEl.addEventListener("input", e=>{
+  const key = e.target.dataset.stat || e.target.dataset.statrange;
+  if(!key) return;
+  const val = parseInt(e.target.value)||0;
+  state.stats[key] = val;
+  // sync the paired control (number <-> range) within the same statitem
+  const wrap = e.target.closest(".statitem");
+  const numEl = wrap.querySelector(`[data-stat="${key}"]`);
+  const rangeEl = wrap.querySelector(`[data-statrange="${key}"]`);
+  if(numEl && numEl!==e.target) numEl.value = val;
+  if(rangeEl && rangeEl!==e.target) rangeEl.value = Math.min(255, Math.max(1,val));
+  render();
+});
+evInputsEl.addEventListener("input", e=>{
+  const key = e.target.dataset.ev || e.target.dataset.evrange;
+  if(!key) return;
+  const val = parseInt(e.target.value)||0;
+  state.ev[key] = val;
+  const wrap = e.target.closest(".statitem");
+  const numEl = wrap.querySelector(`[data-ev="${key}"]`);
+  const rangeEl = wrap.querySelector(`[data-evrange="${key}"]`);
+  if(numEl && numEl!==e.target) numEl.value = val;
+  if(rangeEl && rangeEl!==e.target) rangeEl.value = Math.min(252, Math.max(0,val));
+  render();
+});
+eggGroupChecksEl.addEventListener("change", ()=>{
+  state.eggGroups = Array.from(eggGroupChecksEl.querySelectorAll("input:checked")).map(c=>c.value);
+  render();
+});
+
+document.getElementById("toggleShiny").addEventListener("click", ()=>{
+  state.showShiny = !state.showShiny;
+  render();
+});
+
+/* ---------------- image export: 再配置してCanvasに直接描画する方式 ---------------- */
+/* html2canvas(DOMスクショ)はやめ、画像やテキストを自前でレイアウトして
+   「名前/分類/タイプ → 画像 → 図鑑説明 → 種族値(→全項目版はさらに詳細)」の順で
+   1枚のPNGとして描き出す。object-fit問題が起きない。 */
+
+function loadImageEl(dataUrl){
+  return new Promise(resolve=>{
+    if(!dataUrl){ resolve(null); return; }
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=()=>resolve(null);
+    img.src=dataUrl;
+  });
+}
+function rr(ctx,x,y,w,h,r){
+  if(w<=0||h<=0) return;
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function wrapCanvasText(ctx, text, maxWidth){
+  const paragraphs = String(text).split(/\n/);
+  const lines=[];
+  paragraphs.forEach(p=>{
+    if(p===""){ lines.push(""); return; }
+    let line="";
+    for(const ch of p){
+      const test=line+ch;
+      if(line!=="" && ctx.measureText(test).width>maxWidth){
+        lines.push(line);
+        line=ch;
+      }else{
+        line=test;
+      }
+    }
+    if(line) lines.push(line);
+  });
+  return lines;
+}
+
+async function exportCardCanvas(mode){
+  const btn = mode==="simple" ? document.getElementById("exportSimple") : document.getElementById("exportFull");
+  const origLabel=btn.textContent;
+  btn.textContent="生成中…";
+  btn.disabled=true;
+
+  try{
+    await document.fonts.ready;
+
+    const W=760, PAD=28, GAP=18;
+    const contentW = W - PAD*2;
+
+    // ---- collect data ----
+    const dexno = document.getElementById("dexno").value || "001";
+    const name = document.getElementById("name").value || "なまえ未設定";
+    const genus = document.getElementById("genus").value || "分類未設定";
+    const desc = document.getElementById("dexDescription").value.trim();
+    const t1=type1Sel.value, t2=type2Sel.value;
+    const useShiny = state.showShiny && state.imgShiny;
+    const shownImg = useShiny ? state.imgShiny : state.imgNormal;
+    const imgEl = await loadImageEl(shownImg);
+    const statsArr = STAT_LABELS.map(([k,l])=>({k,l,val:state.stats[k]||0}));
+    const statTotal = statsArr.reduce((s,x)=>s+x.val,0);
+
+    // measuring context (font metrics identical regardless of canvas size)
+    const mCanvas=document.createElement("canvas");
+    const mctx=mCanvas.getContext("2d");
+
+    const blocks=[];
+
+    // --- HEADER: 名前・分類・タイプ ---
+    const headerH = 96;
+    blocks.push({h:headerH, draw(ctx,yy){
+      ctx.textAlign="left";
+      ctx.fillStyle="#5c6874";
+      ctx.font="12px 'DotGothic16'";
+      ctx.fillText("No. "+dexno, PAD, yy+12);
+
+      ctx.fillStyle="#221e1c";
+      ctx.font="700 30px 'DotGothic16'";
+      ctx.fillText(name, PAD, yy+46);
+
+      ctx.fillStyle="#5c6874";
+      ctx.font="13px 'Zen Kaku Gothic New'";
+      ctx.fillText(genus, PAD, yy+66);
+
+      let bx=PAD, by=yy+78;
+      [t1,t2].filter(Boolean).forEach(t=>{
+        ctx.font="700 12px 'DotGothic16'";
+        const tw=ctx.measureText(t).width;
+        const bw=tw+24;
+        ctx.fillStyle=typeColor(t);
+        rr(ctx,bx,by,bw,20,10); ctx.fill();
+        ctx.fillStyle="#ffffff";
+        ctx.textAlign="center";
+        ctx.fillText(t, bx+bw/2, by+14);
+        ctx.textAlign="left";
+        bx+=bw+8;
+      });
+      return yy+headerH;
+    }});
+
+    // --- 画像 ---
+    const imgBoxH = 300;
+    blocks.push({h:imgBoxH, draw(ctx,yy){
+      ctx.fillStyle="#eaf3fb";
+      ctx.strokeStyle="#cfe1ec"; ctx.lineWidth=1;
+      rr(ctx,PAD,yy,contentW,imgBoxH,4); ctx.fill(); ctx.stroke();
+      if(imgEl){
+        const innerPad=24;
+        const fitScale = Math.min((contentW-innerPad*2)/imgEl.width, (imgBoxH-innerPad*2)/imgEl.height);
+        const dw=imgEl.width*fitScale, dh=imgEl.height*fitScale;
+        const dx=PAD+(contentW-dw)/2, dy=yy+(imgBoxH-dh)/2;
+        ctx.drawImage(imgEl, dx, dy, dw, dh);
+      }else{
+        ctx.fillStyle="#5c6874";
+        ctx.font="13px 'DotGothic16'";
+        ctx.textAlign="center";
+        ctx.fillText("画像未設定", PAD+contentW/2, yy+imgBoxH/2);
+        ctx.textAlign="left";
+      }
+      // キャプション
+      ctx.fillStyle="rgba(34,30,28,0.72)";
+      ctx.fillRect(PAD, yy+imgBoxH-20, contentW, 20);
+      ctx.fillStyle="#ffffff";
+      ctx.font="10px 'DotGothic16'";
+      ctx.textAlign="center";
+      ctx.fillText(useShiny?"色違い":"通常", PAD+contentW/2, yy+imgBoxH-6);
+      ctx.textAlign="left";
+      return yy+imgBoxH;
+    }});
+
+    // --- 図鑑説明 ---
+    mctx.font="15px 'Zen Kaku Gothic New'";
+    const descLines = desc ? wrapCanvasText(mctx, desc, contentW-36) : ["未入力"];
+    const descH = 34 + descLines.length*24 + 16;
+    blocks.push({h:descH, draw(ctx,yy){
+      ctx.fillStyle="#fff5f4";
+      ctx.strokeStyle="#cfe1ec"; ctx.lineWidth=1;
+      rr(ctx,PAD,yy,contentW,descH,4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle="#ee7f7b";
+      ctx.fillRect(PAD,yy,4,descH);
+      ctx.fillStyle="#ee7f7b";
+      rr(ctx,PAD+10,yy-9,64,18,9); ctx.fill();
+      ctx.fillStyle="#ffffff";
+      ctx.font="700 10px 'DotGothic16'";
+      ctx.textAlign="center";
+      ctx.fillText("図鑑説明", PAD+10+32, yy+4);
+      ctx.textAlign="left";
+      ctx.fillStyle= desc ? "#221e1c" : "#5c6874";
+      ctx.font= desc ? "15px 'Zen Kaku Gothic New'" : "italic 13px 'Zen Kaku Gothic New'";
+      let ly=yy+34;
+      descLines.forEach(line=>{ ctx.fillText(line, PAD+20, ly); ly+=24; });
+      return yy+descH;
+    }});
+
+    // --- 種族値 ---
+    const statsH = 30 + statsArr.length*22;
+    blocks.push({h:statsH, draw(ctx,yy){
+      ctx.fillStyle="#c25955";
+      ctx.font="12px 'DotGothic16'";
+      ctx.fillText("種族値（合計 "+statTotal+"）", PAD, yy+12);
+      ctx.strokeStyle="#cfe1ec"; ctx.beginPath();
+      ctx.moveTo(PAD,yy+20); ctx.lineTo(PAD+contentW,yy+20); ctx.stroke();
+      let ly=yy+30+8;
+      const barX=PAD+34, barW=contentW-34-46;
+      statsArr.forEach(s=>{
+        ctx.fillStyle="#221e1c";
+        ctx.font="12px 'DotGothic16'";
+        ctx.fillText(s.k, PAD, ly+9);
+        ctx.fillStyle="#e3edf5";
+        rr(ctx,barX,ly,barW,10,5); ctx.fill();
+        const pct=Math.min(1, s.val/200);
+        const grad=ctx.createLinearGradient(barX,0,barX+barW,0);
+        grad.addColorStop(0,"#ee7f7b"); grad.addColorStop(1,"#c25955");
+        ctx.fillStyle=grad;
+        rr(ctx,barX,ly,barW*pct,10,5); ctx.fill();
+        ctx.fillStyle="#221e1c";
+        ctx.font="12px 'DotGothic16'";
+        ctx.textAlign="right";
+        ctx.fillText(String(s.val), PAD+contentW, ly+9);
+        ctx.textAlign="left";
+        ly+=22;
+      });
+      return ly;
+    }});
+
+    if(mode==="full"){
+      // --- 努力値 ---
+      const evEntries = STAT_LABELS.filter(([k])=>state.ev[k]>0).map(([k,l])=>`${l} +${state.ev[k]}`);
+      blocks.push(makeListBlock(mctx,"倒したときに得られる努力値", evEntries.length?[evEntries.join(" / ")]:[], contentW));
+
+      // --- 特性 ---
+      const abilNames=[document.getElementById("abil1name").value, document.getElementById("abil2name").value, document.getElementById("abil3name").value];
+      const abilDescs=[document.getElementById("abil1desc").value, document.getElementById("abil2desc").value, document.getElementById("abil3desc").value];
+      blocks.push(makeAbilitiesBlock(mctx, abilNames, abilDescs, contentW));
+
+      // --- 進化 ---
+      const validStages=state.evoStages.filter(s=>s.name);
+      let evoText="未設定";
+      if(validStages.length){
+        evoText = validStages.map((s,i)=> (i>0 ? `→${s.cond?`[${s.cond}]`:""}→` : "") + s.name).join("");
+      }
+      mctx.font="13px 'Zen Kaku Gothic New'";
+      const evoLines = wrapCanvasText(mctx, evoText, contentW-8);
+      blocks.push(makeListBlock(mctx,"進化", evoLines, contentW));
+
+      // --- レベルアップ技 ---
+      const lvLines = state.levelMoves.filter(m=>m.move).map(m=>`Lv.${m.lv||"－"}　${m.move}`);
+      blocks.push(makeListBlock(mctx,"レベルアップ技", lvLines, contentW));
+
+      // --- わざマシン ---
+      const tmLines = state.tmMoves.filter(m=>m.move).map(m=>`No.${m.no||"－"}　${m.move}`);
+      blocks.push(makeListBlock(mctx,"わざマシン", tmLines, contentW));
+
+      // --- タマゴグループ / ふ化歩数 ---
+      const hatchSteps=document.getElementById("hatchSteps").value;
+      const eggLines=[];
+      eggLines.push("タマゴグループ: " + (state.eggGroups.length? state.eggGroups.join("、") : "未設定"));
+      eggLines.push("ふ化歩数: " + (hatchSteps || "－"));
+      blocks.push(makeListBlock(mctx,"タマゴ情報", eggLines, contentW));
+    }
+
+    // ---- compute total height ----
+    let totalH=PAD;
+    blocks.forEach(b=> totalH += b.h + GAP);
+    totalH += PAD - GAP;
+
+    // ---- draw ----
+    const scale=2;
+    const canvas=document.createElement("canvas");
+    canvas.width=W*scale;
+    canvas.height=totalH*scale;
+    const ctx=canvas.getContext("2d");
+    ctx.scale(scale,scale);
+    ctx.fillStyle="#ffffff";
+    ctx.fillRect(0,0,W,totalH);
+    ctx.strokeStyle="#221e1c"; ctx.lineWidth=2;
+    ctx.strokeRect(1,1,W-2,totalH-2);
+
+    let cursorY=PAD;
+    blocks.forEach(b=>{
+      cursorY = b.draw(ctx, cursorY);
+      cursorY += GAP;
+    });
+
+    const nameVal=(name||"creature").trim().replace(/[\\/:*?"<>|]/g,"");
+    const suffix = mode==="simple" ? "_zukan_simple" : "_zukan_full";
+    const link=document.createElement("a");
+    link.download = nameVal + suffix + ".png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+
+  }catch(err){
+    console.error(err);
+    alert("画像の生成に失敗しました。もう一度お試しください。");
+  }finally{
+    btn.textContent=origLabel;
+    btn.disabled=false;
+  }
+}
+
+// 汎用: タイトル+複数行テキストのシンプルなブロック
+function makeListBlock(mctx, title, lines, contentW){
+  const font="13px 'Zen Kaku Gothic New'";
+  mctx.font=font;
+  const lineH=20;
+  const shown = lines.length ? lines : ["未設定"];
+  const h = 30 + shown.length*lineH;
+  return {h, draw(ctx,yy){
+    const PAD=28;
+    ctx.fillStyle="#c25955";
+    ctx.font="12px 'DotGothic16'";
+    ctx.fillText(title, PAD, yy+12);
+    ctx.strokeStyle="#cfe1ec"; ctx.beginPath();
+    ctx.moveTo(PAD,yy+20); ctx.lineTo(PAD+contentW,yy+20); ctx.stroke();
+    ctx.fillStyle= lines.length? "#221e1c" : "#5c6874";
+    ctx.font= lines.length? font : "italic 12px 'Zen Kaku Gothic New'";
+    let ly=yy+20+18;
+    shown.forEach(l=>{ ctx.fillText(l, PAD, ly); ly+=lineH; });
+    return yy+h;
+  }};
+}
+
+// 特性ブロック（名前は太字、説明は折り返し）
+function makeAbilitiesBlock(mctx, names, descs, contentW){
+  const PAD=28;
+  const valid = names.map((n,i)=>({name:n, desc:descs[i], hidden:i===2})).filter(a=>a.name);
+  mctx.font="12.5px 'Zen Kaku Gothic New'";
+  const entries = valid.map(a=>{
+    const dLines = a.desc ? wrapCanvasText(mctx, a.desc, contentW-8) : [];
+    return {...a, dLines, entryH: 22 + dLines.length*18 + 8};
+  });
+  const bodyH = entries.length ? entries.reduce((s,e)=>s+e.entryH,0) : 20;
+  const h = 30 + bodyH;
+  return {h, draw(ctx,yy){
+    ctx.fillStyle="#c25955";
+    ctx.font="12px 'DotGothic16'";
+    ctx.fillText("特性", PAD, yy+12);
+    ctx.strokeStyle="#cfe1ec"; ctx.beginPath();
+    ctx.moveTo(PAD,yy+20); ctx.lineTo(PAD+contentW,yy+20); ctx.stroke();
+    let ly=yy+20+20;
+    if(entries.length===0){
+      ctx.fillStyle="#5c6874"; ctx.font="italic 12px 'Zen Kaku Gothic New'";
+      ctx.fillText("未設定", PAD, ly);
+    }else{
+      entries.forEach(e=>{
+        ctx.fillStyle = e.hidden ? "#7a2420" : "#221e1c";
+        ctx.font="700 14px 'Zen Kaku Gothic New'";
+        ctx.fillText(e.name + (e.hidden?"（隠れ特性）":""), PAD, ly);
+        ly+=20;
+        ctx.fillStyle="#5c6874";
+        ctx.font="12.5px 'Zen Kaku Gothic New'";
+        e.dLines.forEach(dl=>{ ctx.fillText(dl, PAD, ly); ly+=18; });
+        ly+=8;
+      });
+    }
+    return yy+h;
+  }};
+}
+
+document.getElementById("exportSimple").addEventListener("click", ()=> exportCardCanvas("simple"));
+document.getElementById("exportFull").addEventListener("click", ()=> exportCardCanvas("full"));
+
+
+/* ---------------- render preview ---------------- */
+function typeColor(name){
+  const t=TYPES.find(t=>t[0]===name);
+  return t? t[1] : "#999";
+}
+
+function render(){
+  const dexno = document.getElementById("dexno").value || "001";
+  const name = document.getElementById("name").value || "なまえ未設定";
+  const genus = document.getElementById("genus").value || "分類未設定";
+
+  document.getElementById("pv-no").textContent = "No. "+dexno;
+  document.getElementById("pv-name").textContent = name;
+  document.getElementById("pv-genus").textContent = genus;
+
+  // dex description (flavor text)
+  const descVal = document.getElementById("dexDescription").value.trim();
+  const descEl = document.getElementById("pv-description");
+  descEl.innerHTML = descVal ? "" : `<span class="emptynote">図鑑説明は未入力です</span>`;
+  if(descVal) descEl.textContent = descVal;
+
+  // types
+  const t1=type1Sel.value, t2=type2Sel.value;
+  const typesEl=document.getElementById("pv-types");
+  typesEl.innerHTML="";
+  [t1,t2].filter(Boolean).forEach(t=>{
+    const span=document.createElement("span");
+    span.className="typebadge"; span.textContent=t;
+    span.style.background=typeColor(t);
+    typesEl.appendChild(span);
+  });
+
+  // sprite (normal / shiny toggle)
+  const sp=document.getElementById("pv-spriteMain");
+  const useShiny = state.showShiny && state.imgShiny;
+  const shownImg = useShiny ? state.imgShiny : state.imgNormal;
+  if(shownImg){
+    sp.innerHTML = `<div class="spriteimg" style="background-image:url('${shownImg}');"></div><div class="cap">${useShiny ? "色違い" : "通常"}</div>`;
+  }else{
+    sp.innerHTML = `<span>${state.showShiny ? "色違い画像未設定" : "通常画像未設定"}</span>`;
+  }
+  document.getElementById("toggleShiny").textContent = state.showShiny ? "通常表示に戻す" : "色違い表示に切替";
+
+  // basic kv
+  const h=document.getElementById("height").value;
+  const w=document.getElementById("weight").value;
+  document.getElementById("pv-height").textContent = h ? h+" m" : "－";
+  document.getElementById("pv-weight").textContent = w ? w+" kg" : "－";
+
+  const genderMode = document.querySelector('input[name="genderMode"]:checked').value;
+  if(genderMode==="unknown"){
+    document.getElementById("pv-gender").textContent="性別不明";
+  }else{
+    const m=maleRatioInput.value;
+    document.getElementById("pv-gender").textContent = `♂ ${m}% / ♀ ${100-m}%`;
+  }
+
+  const baseExp=document.getElementById("baseExp").value;
+  document.getElementById("pv-baseexp").textContent = baseExp || "－";
+
+  // stats
+  const statbarsEl=document.getElementById("pv-statbars");
+  statbarsEl.innerHTML="";
+  let total=0;
+  STAT_LABELS.forEach(([key])=>{
+    const val=state.stats[key]||0;
+    total+=val;
+    const pct=Math.min(100,(val/200)*100);
+    const row=document.createElement("div");
+    row.className="statbar-row";
+    row.innerHTML=`<span>${key}</span><div class="track"><div class="fill" style="width:${pct}%;"></div></div><span class="val">${val}</span>`;
+    statbarsEl.appendChild(row);
+  });
+  document.getElementById("pv-stattotal").textContent=total;
+  document.getElementById("statTotalLabel").textContent=total;
+
+  // EV yield
+  const evEl=document.getElementById("pv-evyield");
+  const evEntries = STAT_LABELS.filter(([key])=>state.ev[key]>0);
+  if(evEntries.length===0){
+    evEl.innerHTML=`<span class="emptynote">未設定</span>`;
+  }else{
+    evEl.innerHTML = evEntries.map(([key,label])=>`<span class="evbadge">${label} +${state.ev[key]}</span>`).join("");
+  }
+
+  // abilities
+  const abilEl=document.getElementById("pv-abilities");
+  const names=[document.getElementById("abil1name").value, document.getElementById("abil2name").value, document.getElementById("abil3name").value];
+  const descs=[document.getElementById("abil1desc").value, document.getElementById("abil2desc").value, document.getElementById("abil3desc").value];
+  let abilHtml="";
+  names.forEach((n,i)=>{
+    if(n){
+      const isHidden = i===2;
+      abilHtml += `<div class="abilcard"><div class="nm ${isHidden?'hidden':''}">${n}${isHidden?'（隠れ特性）':''}</div><div class="ds">${descs[i]||'説明未入力'}</div></div>`;
+    }
+  });
+  abilEl.innerHTML = abilHtml || `<span class="emptynote">未設定</span>`;
+
+  // evolution chain
+  const evoEl=document.getElementById("pv-evochain");
+  const validStages = state.evoStages.filter(s=>s.name);
+  if(validStages.length===0){
+    evoEl.innerHTML=`<span class="emptynote">未設定</span>`;
+  }else{
+    let html="";
+    validStages.forEach((s,i)=>{
+      if(i>0){
+        html += `<span class="ar">→</span>`;
+        if(s.cond) html += `<span class="cond">[${s.cond}]</span>`;
+      }
+      html += `<span class="stg">${s.name}</span>`;
+    });
+    evoEl.innerHTML = html;
+  }
+
+  // level moves
+  const lvBody=document.getElementById("pv-levelmoves");
+  lvBody.innerHTML = state.levelMoves.filter(m=>m.move).map(m=>`<tr><td>${m.lv||'－'}</td><td>${m.move}</td></tr>`).join("") || `<tr><td colspan="2" class="emptynote" style="padding:8px;">未設定</td></tr>`;
+
+  // tm moves
+  const tmBody=document.getElementById("pv-tmmoves");
+  tmBody.innerHTML = state.tmMoves.filter(m=>m.move).map(m=>`<tr><td>${m.no||'－'}</td><td>${m.move}</td></tr>`).join("") || `<tr><td colspan="2" class="emptynote" style="padding:8px;">未設定</td></tr>`;
+
+  // egg groups
+  const eggEl=document.getElementById("pv-egggroups");
+  eggEl.innerHTML = state.eggGroups.length ? state.eggGroups.map(g=>`<span class="eggchip">${g}</span>`).join("") : `<span class="emptynote">未設定</span>`;
+  document.getElementById("pv-hatch").textContent = document.getElementById("hatchSteps").value || "－";
+
+  // cry
+  const cryEl=document.getElementById("pv-crybox");
+  if(state.cryData){
+    cryEl.innerHTML = `<div style="font-family:'DotGothic16',monospace;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">${state.cryName||''}</div><audio controls src="${state.cryData}"></audio>`;
+  }else{
+    cryEl.innerHTML = `<span class="none">音声ファイル未設定</span>`;
+  }
+}
+
+render();
+</script>
+</body>
+</html>

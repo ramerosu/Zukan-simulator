@@ -13,8 +13,10 @@
   --paper-card:#ffffff;
   --ink:#221e1c;
   --ink-soft:#5c6874;
-  --moss:#ee7f7b;
-  --moss-deep:#c25955;
+  --moss:#4d8db3;
+  --moss-deep:#336a89;
+  --stat-red:#ee7f7b;
+  --stat-red-deep:#c25955;
   --indigo:#33475e;
   --ochre:#c08a2e;
   --rule:#cfe1ec;
@@ -185,6 +187,8 @@ input:focus, textarea:focus, select:focus{
 }
 .statitem .lbl b{color:var(--ink);font-size:12.5px;}
 .statitem input[type=number]{border:none;background:transparent;padding:0;width:52px;font-family:'DotGothic16',monospace;font-size:18px;font-weight:700;color:var(--moss-deep);text-align:right;}
+.statitem-stat input[type=number]{color:var(--stat-red-deep);}
+.statitem-stat input[type=range]{accent-color:var(--stat-red);}
 .statitem .lbl{align-items:baseline;}
 .statitem input[type=range]{width:100%;margin-top:2px;height:14px;}
 .stattotal{
@@ -368,7 +372,7 @@ audio{width:100%;margin-top:8px;}
 .statbars{display:flex;flex-direction:column;gap:6px;}
 .statbar-row{display:grid;grid-template-columns:26px 1fr 34px;align-items:center;gap:8px;font-family:'DotGothic16',monospace;font-size:11px;}
 .statbar-row .track{height:9px;background:#e6dfc9;border-radius:999px;overflow:hidden;border:1px solid var(--rule);}
-.statbar-row .fill{height:100%;background:linear-gradient(90deg,var(--moss),var(--moss-deep));}
+.statbar-row .fill{height:100%;background:linear-gradient(90deg,var(--stat-red),var(--stat-red-deep));}
 .statbar-row .val{text-align:right;}
 .statTotalLine{margin-top:6px;text-align:right;font-family:'DotGothic16',monospace;font-size:11px;color:var(--ink-soft);}
 
@@ -536,7 +540,10 @@ footer.note{
           <div class="statgrid" id="statInputs">
             <!-- filled by JS -->
           </div>
-          <div class="stattotal">合計種族値: <b id="statTotalLabel">0</b></div>
+          <div class="stattotal">
+            合計種族値: <b id="statTotalLabel">0</b>
+            <button class="addbtn" id="randomizeStats" type="button" style="margin-left:10px;">🎲 種族値をランダム</button>
+          </div>
         </div>
         <fieldset>
           <legend>倒したときにもらえる努力値</legend>
@@ -556,6 +563,7 @@ footer.note{
             <div class="field"><label>タイプ1</label><select id="type1"></select></div>
             <div class="field"><label>タイプ2（任意）</label><select id="type2"><option value="">－ なし －</option></select></div>
           </div>
+          <button class="addbtn" id="randomizeType" type="button">🎲 タイプをランダム</button>
         </fieldset>
         <fieldset>
           <legend>特性</legend>
@@ -796,13 +804,13 @@ TYPES.forEach(([name])=>{
 const statInputsEl = document.getElementById("statInputs");
 const evInputsEl = document.getElementById("evInputs");
 STAT_LABELS.forEach(([key,label])=>{
-  const div=document.createElement("div"); div.className="statitem";
+  const div=document.createElement("div"); div.className="statitem statitem-stat";
   div.innerHTML=`
     <div class="lbl"><b>${key}</b><span>${label}</span><input type="number" min="1" max="255" data-stat="${key}" value="${state.stats[key]}"></div>
     <input type="range" min="1" max="255" step="1" data-statrange="${key}" value="${state.stats[key]}">`;
   statInputsEl.appendChild(div);
 
-  const evDiv=document.createElement("div"); evDiv.className="statitem";
+  const evDiv=document.createElement("div"); evDiv.className="statitem statitem-ev";
   evDiv.innerHTML=`
     <div class="lbl"><b>${key}</b><span>努力値</span><input type="number" min="0" max="252" data-ev="${key}" value="0"></div>
     <input type="range" min="0" max="252" step="4" data-evrange="${key}" value="0">`;
@@ -991,6 +999,53 @@ type1Sel.addEventListener("change", render);
 type2Sel.addEventListener("change", render);
 document.getElementById("evoStageNum").addEventListener("change", render);
 
+/* ---------------- ランダムボタン ---------------- */
+function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+document.getElementById("randomizeStats").addEventListener("click", ()=>{
+  // 合計種族値が700(原作の最大クラス相当)を超えないようにランダム生成する
+  const MAX_TOTAL = 700;
+  const MIN_EACH = 1, MAX_EACH = 255;
+  const n = STAT_LABELS.length;
+
+  // まず各ステータスの「素の」ランダム値を生成（20〜150の実在ポケモンらしい幅）
+  let raw = STAT_LABELS.map(()=> randInt(20,150));
+  let sum = raw.reduce((a,b)=>a+b,0);
+
+  // 合計が上限を超えていたら比例縮小
+  if(sum > MAX_TOTAL){
+    const factor = MAX_TOTAL / sum;
+    raw = raw.map(v=> Math.max(MIN_EACH, Math.floor(v*factor)));
+  }
+  // 上限(255)を超える値があれば念のためクランプ
+  raw = raw.map(v=> Math.min(MAX_EACH, v));
+
+  STAT_LABELS.forEach(([key], i)=>{
+    const val = raw[i];
+    state.stats[key]=val;
+    const numEl = statInputsEl.querySelector(`[data-stat="${key}"]`);
+    const rangeEl = statInputsEl.querySelector(`[data-statrange="${key}"]`);
+    if(numEl) numEl.value=val;
+    if(rangeEl) rangeEl.value=val;
+  });
+  render();
+});
+
+document.getElementById("randomizeType").addEventListener("click", ()=>{
+  const names = TYPES.map(t=>t[0]);
+  const t1 = names[randInt(0, names.length-1)];
+  type1Sel.value = t1;
+  // 70%の確率でタイプ2も設定（タイプ1とは別のものを選ぶ）
+  if(Math.random() < 0.7){
+    let t2;
+    do{ t2 = names[randInt(0, names.length-1)]; } while(t2===t1);
+    type2Sel.value = t2;
+  }else{
+    type2Sel.value = "";
+  }
+  render();
+});
+
 statInputsEl.addEventListener("input", e=>{
   const key = e.target.dataset.stat || e.target.dataset.statrange;
   if(!key) return;
@@ -1170,9 +1225,9 @@ async function exportCardCanvas(mode){
       ctx.fillStyle="#fff5f4";
       ctx.strokeStyle="#cfe1ec"; ctx.lineWidth=1;
       rr(ctx,PAD,yy,contentW,descH,4); ctx.fill(); ctx.stroke();
-      ctx.fillStyle="#ee7f7b";
+      ctx.fillStyle="#4d8db3";
       ctx.fillRect(PAD,yy,4,descH);
-      ctx.fillStyle="#ee7f7b";
+      ctx.fillStyle="#4d8db3";
       rr(ctx,PAD+10,yy-9,64,18,9); ctx.fill();
       ctx.fillStyle="#ffffff";
       ctx.font="700 10px 'DotGothic16'";
@@ -1301,7 +1356,7 @@ function makeListBlock(mctx, title, lines, contentW){
   const h = 30 + shown.length*lineH;
   return {h, draw(ctx,yy){
     const PAD=28;
-    ctx.fillStyle="#c25955";
+    ctx.fillStyle="#336a89";
     ctx.font="12px 'DotGothic16'";
     ctx.fillText(title, PAD, yy+12);
     ctx.strokeStyle="#cfe1ec"; ctx.beginPath();
@@ -1326,7 +1381,7 @@ function makeAbilitiesBlock(mctx, names, descs, contentW){
   const bodyH = entries.length ? entries.reduce((s,e)=>s+e.entryH,0) : 20;
   const h = 30 + bodyH;
   return {h, draw(ctx,yy){
-    ctx.fillStyle="#c25955";
+    ctx.fillStyle="#336a89";
     ctx.font="12px 'DotGothic16'";
     ctx.fillText("特性", PAD, yy+12);
     ctx.strokeStyle="#cfe1ec"; ctx.beginPath();

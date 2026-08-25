@@ -400,6 +400,27 @@ table.movetable th{
 }
 table.movetable td{padding:4px 4px;border-bottom:1px solid #e6dfc9;}
 .scrolltable{max-height:190px;overflow-y:auto;border:1px solid var(--rule);}
+.moveRow{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 8px;border-bottom:1px solid #e6dfc9;
+  font-size:12px;
+}
+.moveRow:last-child{border-bottom:none;}
+.moveRow .mname{font-weight:700;flex:1 1 auto;min-width:90px;}
+.moveRow .mtype{
+  font-family:'DotGothic16',monospace;font-size:9.5px;font-weight:700;color:#fff;
+  padding:2px 7px;border-radius:999px;flex-shrink:0;
+}
+.moveRow .mcat{font-size:10px;color:var(--ink-soft);flex-shrink:0;width:32px;}
+.moveRow .mstat{font-family:'DotGothic16',monospace;font-size:10px;color:var(--ink-soft);flex-shrink:0;width:96px;}
+.moveRow .maddbtns{display:flex;gap:4px;flex-shrink:0;}
+.moveRow .maddbtns button{
+  font-family:'DotGothic16',monospace;font-size:10px;
+  border:1px solid var(--moss);color:var(--moss-deep);background:#eaf3fb;
+  padding:3px 6px;border-radius:2px;cursor:pointer;
+}
+.moveRow .maddbtns button:hover{background:var(--moss);color:#fff;}
+.moveSearchEmpty{padding:14px;text-align:center;font-size:11.5px;color:var(--ink-soft);}
 
 .evbadges{display:flex;flex-wrap:wrap;gap:6px;}
 .evbadge{
@@ -407,6 +428,16 @@ table.movetable td{padding:4px 4px;border-bottom:1px solid #e6dfc9;}
   background:#fdf3df;border:1px solid var(--ochre);color:#7a5a20;
   padding:3px 8px;border-radius:2px;
 }
+.typechart-row{display:flex;gap:8px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
+.typechart-row .lbl{font-family:'DotGothic16',monospace;font-size:10px;color:var(--ink-soft);width:78px;flex-shrink:0;}
+.typebadge-sm{
+  font-family:'DotGothic16',monospace;font-size:10px;font-weight:700;color:#fff;
+  padding:2px 8px;border-radius:999px;letter-spacing:0.03em;
+}
+.statsWrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap;}
+.statbars{flex:1 1 260px;min-width:200px;}
+.radarWrap{flex:0 0 170px;display:flex;justify-content:center;}
+.radarWrap svg{width:170px;height:170px;}
 .egglist{display:flex;flex-wrap:wrap;gap:6px;}
 .eggchip{
   font-size:11px;background:#fbecec;border:1px solid var(--moss);color:var(--moss-deep);
@@ -605,6 +636,16 @@ footer.note{
 
       <!-- TAB5: わざ -->
       <div class="tabpage" id="t5">
+        <fieldset>
+          <legend>技データベースから検索</legend>
+          <div class="row2">
+            <div class="field" style="margin-bottom:8px;"><input type="text" id="moveSearchInput" placeholder="技名で検索（例: ほのお、りゅう、ビーム）"></div>
+            <div class="field" style="margin-bottom:8px;"><select id="moveSearchType"><option value="">タイプ: すべて</option></select></div>
+          </div>
+          <div class="scrolltable" id="moveSearchResults" style="max-height:220px;"></div>
+          <div class="hint">見つかった技の「+Lv」「+TM」ボタンで、それぞれの表にそのまま追加できます（レベル・No.は追加後に入力してください）。威力・命中率・PPは目安の参考値です。</div>
+        </fieldset>
+
         <div class="field">
           <label>レベルアップで覚える技</label>
           <div class="scrolltable">
@@ -670,7 +711,9 @@ footer.note{
         <button class="filebtn" id="toggleShiny" type="button">色違い表示 切替</button>
         <button class="filebtn accent" id="exportSimple" type="button">画像保存（簡易版）</button>
         <button class="filebtn accent" id="exportFull" type="button">画像保存（全項目）</button>
-        <div class="toolbarNote">※わざ・タマゴ情報・鳴き声は画像に含まれません</div>
+        <button class="filebtn" id="saveJson" type="button">💾 JSONで保存</button>
+        <label class="filebtn" id="loadJsonLabel">📂 JSONを読み込む<input type="file" accept="application/json,.json" id="loadJsonInput" style="display:none;"></label>
+        <div class="toolbarNote">※わざ・タマゴ情報・鳴き声は画像に含まれません（JSON保存にはすべて含まれます）</div>
       </div>
 
       <div class="card">
@@ -700,8 +743,16 @@ footer.note{
           </div>
 
           <div class="section">
+            <h3>タイプ相性</h3>
+            <div id="pv-typechart"></div>
+          </div>
+
+          <div class="section">
             <h3>種族値（合計 <span id="pv-stattotal">0</span>）</h3>
-            <div class="statbars" id="pv-statbars"></div>
+            <div class="statsWrap">
+              <div class="statbars" id="pv-statbars"></div>
+              <div class="radarWrap" id="pv-radar"></div>
+            </div>
           </div>
 
           <div class="section">
@@ -773,6 +824,170 @@ const EGG_GROUPS = [
 ];
 const STAT_LABELS = [["H","HP"],["A","こうげき"],["B","ぼうぎょ"],["C","とくこう"],["D","とくぼう"],["S","すばやさ"]];
 
+/* タイプ相性表（攻撃タイプ→防御タイプの倍率）。1倍は省略、それ以外のみ記載。 */
+const TYPE_CHART = {
+  "ノーマル": {"いわ":0.5, "はがね":0.5, "ゴースト":0},
+  "ほのお": {"くさ":2, "こおり":2, "むし":2, "はがね":2, "ほのお":0.5, "みず":0.5, "いわ":0.5, "ドラゴン":0.5},
+  "みず": {"ほのお":2, "じめん":2, "いわ":2, "みず":0.5, "くさ":0.5, "ドラゴン":0.5},
+  "でんき": {"みず":2, "ひこう":2, "でんき":0.5, "くさ":0.5, "ドラゴン":0.5, "じめん":0},
+  "くさ": {"みず":2, "じめん":2, "いわ":2, "ほのお":0.5, "くさ":0.5, "どく":0.5, "ひこう":0.5, "むし":0.5, "ドラゴン":0.5, "はがね":0.5},
+  "こおり": {"くさ":2, "じめん":2, "ひこう":2, "ドラゴン":2, "ほのお":0.5, "みず":0.5, "こおり":0.5, "はがね":0.5},
+  "かくとう": {"ノーマル":2, "こおり":2, "いわ":2, "あく":2, "はがね":2, "どく":0.5, "ひこう":0.5, "エスパー":0.5, "むし":0.5, "フェアリー":0.5, "ゴースト":0},
+  "どく": {"くさ":2, "フェアリー":2, "どく":0.5, "じめん":0.5, "いわ":0.5, "ゴースト":0.5, "はがね":0},
+  "じめん": {"ほのお":2, "でんき":2, "どく":2, "いわ":2, "はがね":2, "くさ":0.5, "むし":0.5, "ひこう":0},
+  "ひこう": {"くさ":2, "かくとう":2, "むし":2, "でんき":0.5, "いわ":0.5, "はがね":0.5},
+  "エスパー": {"かくとう":2, "どく":2, "エスパー":0.5, "はがね":0.5, "あく":0},
+  "むし": {"くさ":2, "エスパー":2, "あく":2, "ほのお":0.5, "かくとう":0.5, "どく":0.5, "ひこう":0.5, "ゴースト":0.5, "はがね":0.5, "フェアリー":0.5},
+  "いわ": {"ほのお":2, "こおり":2, "ひこう":2, "むし":2, "かくとう":0.5, "じめん":0.5, "はがね":0.5},
+  "ゴースト": {"エスパー":2, "ゴースト":2, "あく":0.5, "ノーマル":0},
+  "ドラゴン": {"ドラゴン":2, "はがね":0.5, "フェアリー":0},
+  "あく": {"エスパー":2, "ゴースト":2, "かくとう":0.5, "あく":0.5, "フェアリー":0.5},
+  "はがね": {"こおり":2, "いわ":2, "フェアリー":2, "ほのお":0.5, "みず":0.5, "でんき":0.5, "はがね":0.5},
+  "フェアリー": {"かくとう":2, "ドラゴン":2, "あく":2, "ほのお":0.5, "どく":0.5, "はがね":0.5}
+};
+function calcTypeEffectiveness(t1, t2){
+  const allTypes = TYPES.map(t=>t[0]);
+  const result = {quad:[], double:[], half:[], quarter:[], immune:[]};
+  allTypes.forEach(atk=>{
+    const m1 = (TYPE_CHART[atk] && TYPE_CHART[atk][t1]!==undefined) ? TYPE_CHART[atk][t1] : 1;
+    const m2 = t2 ? ((TYPE_CHART[atk] && TYPE_CHART[atk][t2]!==undefined) ? TYPE_CHART[atk][t2] : 1) : 1;
+    const mult = m1*m2;
+    if(mult===0) result.immune.push(atk);
+    else if(mult===4) result.quad.push(atk);
+    else if(mult===2) result.double.push(atk);
+    else if(mult===0.5) result.half.push(atk);
+    else if(mult===0.25) result.quarter.push(atk);
+  });
+  return result;
+}
+
+/* ---------------- 技データベース（参考用の簡易データ。威力・命中・PPは目安） ---------------- */
+/* 各要素: [技名, タイプ, 分類(物理/特殊/変化), 威力, 命中率, PP] */
+const MOVE_DB = [
+  ["たいあたり","ノーマル","物理",40,100,35],
+  ["でんこうせっか","ノーマル","物理",40,100,30],
+  ["のしかかり","ノーマル","物理",85,100,15],
+  ["とっしん","ノーマル","物理",90,85,20],
+  ["すてみタックル","ノーマル","物理",120,100,15],
+  ["こうそくいどう","ノーマル","変化","-","-",30],
+  ["かげぶんしん","ノーマル","変化","-","-",15],
+  ["まもる","ノーマル","変化","-","-",10],
+  ["ハイパーボイス","ノーマル","特殊",90,100,10],
+  ["こごえるかぜ","こおり","特殊",55,95,15],
+
+  ["ひのこ","ほのお","特殊",40,100,25],
+  ["かえんほうしゃ","ほのお","特殊",90,100,15],
+  ["だいもんじ","ほのお","特殊",110,85,5],
+  ["オーバーヒート","ほのお","特殊",130,90,5],
+  ["ほのおのキバ","ほのお","物理",65,95,15],
+  ["フレアドライブ","ほのお","物理",120,100,15],
+  ["にほんばれ","ほのお","変化","-","-",5],
+  ["おにび","ほのお","変化","-",85,15],
+
+  ["みずでっぽう","みず","特殊",40,100,25],
+  ["なみのり","みず","特殊",90,100,15],
+  ["ハイドロポンプ","みず","特殊",110,80,5],
+  ["アクアジェット","みず","物理",40,100,20],
+  ["たきのぼり","みず","物理",80,100,15],
+  ["しおふき","みず","特殊",150,100,5],
+  ["あまごい","みず","変化","-","-",5],
+  ["じゃれつく","フェアリー","物理",90,90,10],
+
+  ["でんきショック","でんき","特殊",40,100,30],
+  ["10まんボルト","でんき","特殊",90,100,15],
+  ["かみなり","でんき","特殊",110,70,10],
+  ["エレキボール","でんき","特殊","可変",100,10],
+  ["かみなりパンチ","でんき","物理",75,100,15],
+  ["でんじは","でんき","変化","-",90,20],
+  ["ボルトチェンジ","でんき","特殊",70,100,20],
+
+  ["はっぱカッター","くさ","物理",55,95,25],
+  ["リーフブレード","くさ","物理",90,100,15],
+  ["ソーラービーム","くさ","特殊",120,100,10],
+  ["くさむすび","くさ","特殊","可変",100,20],
+  ["やどりぎのタネ","くさ","変化","-",90,10],
+  ["こうごうせい","くさ","変化","-","-",5],
+  ["タネマシンガン","くさ","物理",25,100,10],
+
+  ["れいとうビーム","こおり","特殊",90,100,10],
+  ["ふぶき","こおり","特殊",110,70,5],
+  ["れいとうパンチ","こおり","物理",75,100,15],
+  ["つららばり","こおり","物理",25,100,30],
+  ["こおりのつぶて","こおり","物理",40,100,30],
+
+  ["からてチョップ","かくとう","物理",50,100,25],
+  ["きあいパンチ","かくとう","物理",150,100,20],
+  ["インファイト","かくとう","物理",120,100,5],
+  ["クロスチョップ","かくとう","物理",100,80,5],
+  ["アームハンマー","かくとう","物理",100,90,10],
+  ["けたぐり","かくとう","物理","可変",100,20],
+
+  ["どくのこな","どく","変化","-",75,35],
+  ["ヘドロこうげき","どく","特殊",65,100,20],
+  ["ヘドロばくだん","どく","特殊",90,100,10],
+  ["どくづき","どく","物理",80,100,20],
+  ["アシッドボム","どく","特殊",40,100,20],
+
+  ["じしん","じめん","物理",100,100,10],
+  ["じわれ","じめん","物理","一撃必殺",30,5],
+  ["マグニチュード","じめん","物理","可変",100,30],
+  ["どろばくだん","じめん","特殊",65,85,10],
+  ["ステルスロック","いわ","変化","-","-",20],
+
+  ["つばさでうつ","ひこう","物理",60,100,35],
+  ["エアスラッシュ","ひこう","特殊",75,95,15],
+  ["ぼうふう","ひこう","特殊",110,70,10],
+  ["ブレイブバード","ひこう","物理",120,100,15],
+  ["ドリルライナー","ひこう","物理",80,95,10],
+
+  ["ねんりき","エスパー","特殊",50,100,25],
+  ["サイコキネシス","エスパー","特殊",90,100,10],
+  ["サイコショック","エスパー","特殊",80,100,10],
+  ["みらいよち","エスパー","特殊",120,100,10],
+  ["トリック","エスパー","変化","-","-",10],
+
+  ["むしくい","むし","物理",60,100,20],
+  ["とんぼがえり","むし","物理",70,100,20],
+  ["ぎんいろのかぜ","むし","特殊",60,100,20],
+  ["メガホーン","むし","物理",120,85,10],
+  ["むしのさざめき","むし","特殊",90,100,10],
+
+  ["いわおとし","いわ","物理",50,90,15],
+  ["ストーンエッジ","いわ","物理",100,80,5],
+  ["がんせきほう","いわ","物理",150,90,5],
+  ["すなあらし","いわ","変化","-","-",10],
+  ["いわなだれ","いわ","物理",75,90,10],
+
+  ["したでなめる","ゴースト","物理",30,100,30],
+  ["シャドーボール","ゴースト","特殊",80,100,15],
+  ["シャドークロー","ゴースト","物理",70,100,15],
+  ["のろい","ゴースト","変化","-","-",10],
+
+  ["りゅうのいかり","ドラゴン","物理","固定40","100",15],
+  ["りゅうせいぐん","ドラゴン","特殊",130,90,5],
+  ["げきりん","ドラゴン","物理",120,100,10],
+  ["りゅうのはどう","ドラゴン","特殊",85,100,10],
+  ["ドラゴンクロー","ドラゴン","物理",80,100,15],
+
+  ["かみつく","あく","物理",60,100,25],
+  ["あくのはどう","あく","特殊",80,100,15],
+  ["イカサマ","あく","物理",95,100,15],
+  ["つじぎり","あく","物理",70,100,15],
+
+  ["メタルクロー","はがね","物理",50,95,35],
+  ["アイアンテール","はがね","物理",100,75,15],
+  ["ラスターカノン","はがね","特殊",120,100,5],
+  ["アイアンヘッド","はがね","物理",80,100,15],
+
+  ["ムーンフォース","フェアリー","特殊",95,100,15],
+  ["マジカルシャイン","フェアリー","特殊",80,100,10],
+  ["ようせいのかぜ","フェアリー","特殊",40,100,30],
+
+  ["つるぎのまい","ノーマル","変化","-","-",20],
+  ["みがわり","ノーマル","変化","-","-",10],
+  ["ねむる","ノーマル","変化","-","-",10]
+];
+
 let state = {
   imgNormal:null, imgShiny:null, showShiny:false, cryData:null, cryName:null,
   stats:{H:45,A:49,B:49,C:65,D:65,S:45},
@@ -798,6 +1013,12 @@ const type2Sel = document.getElementById("type2");
 TYPES.forEach(([name])=>{
   const o1=document.createElement("option"); o1.value=name; o1.textContent=name; type1Sel.appendChild(o1);
   const o2=document.createElement("option"); o2.value=name; o2.textContent=name; type2Sel.appendChild(o2);
+});
+
+/* ---------------- 技検索フィルター用のタイプoption ---------------- */
+const moveSearchTypeSel = document.getElementById("moveSearchType");
+TYPES.forEach(([name])=>{
+  const o=document.createElement("option"); o.value=name; o.textContent=name; moveSearchTypeSel.appendChild(o);
 });
 
 /* ---------------- build stat inputs ---------------- */
@@ -948,6 +1169,54 @@ document.getElementById("addLevelMove").addEventListener("click", ()=>{
 document.getElementById("addTmMove").addEventListener("click", ()=>{
   state.tmMoves.push({no:"",move:""}); rerenderTm(); render();
 });
+
+/* ---------------- 技データベース検索 ---------------- */
+function renderMoveSearchResults(){
+  const q = document.getElementById("moveSearchInput").value.trim();
+  const typeFilter = moveSearchTypeSel.value;
+  const resultsEl = document.getElementById("moveSearchResults");
+
+  let matches = MOVE_DB.filter(([name, type])=>{
+    const matchesQuery = q==="" || name.includes(q);
+    const matchesType = typeFilter==="" || type===typeFilter;
+    return matchesQuery && matchesType;
+  });
+  // 名前の重複は1件にまとめる
+  const seen=new Set();
+  matches = matches.filter(m=>{ if(seen.has(m[0])) return false; seen.add(m[0]); return true; });
+
+  if(matches.length===0){
+    resultsEl.innerHTML = `<div class="moveSearchEmpty">該当する技が見つかりません（データベースは主要な技のみの簡易版です。手入力もできます）</div>`;
+    return;
+  }
+
+  resultsEl.innerHTML = matches.slice(0,60).map(([name,type,cat,power,acc,pp])=>`
+    <div class="moveRow">
+      <span class="mtype" style="background:${typeColor(type)};">${type}</span>
+      <span class="mname">${name}</span>
+      <span class="mcat">${cat}</span>
+      <span class="mstat">威力${power} 命中${acc} PP${pp}</span>
+      <span class="maddbtns">
+        <button type="button" data-addlv="${name}">+Lv</button>
+        <button type="button" data-addtm="${name}">+TM</button>
+      </span>
+    </div>
+  `).join("");
+}
+document.getElementById("moveSearchInput").addEventListener("input", renderMoveSearchResults);
+moveSearchTypeSel.addEventListener("change", renderMoveSearchResults);
+document.getElementById("moveSearchResults").addEventListener("click", e=>{
+  const lvName = e.target.dataset.addlv;
+  const tmName = e.target.dataset.addtm;
+  if(lvName){
+    state.levelMoves.push({lv:"", move:lvName});
+    rerenderLevel(); render();
+  }else if(tmName){
+    state.tmMoves.push({no:"", move:tmName});
+    rerenderTm(); render();
+  }
+});
+renderMoveSearchResults();
 
 /* ---------------- bulk move parsing ("番号-技名" 形式を1行ずつ) ---------------- */
 function parseBulkMoveLines(text){
@@ -1241,6 +1510,15 @@ async function exportCardCanvas(mode){
       return yy+descH;
     }});
 
+    // --- タイプ相性 ---
+    const typeEff = t1 ? calcTypeEffectiveness(t1, t2) : {quad:[],double:[],half:[],quarter:[],immune:[]};
+    const typeEffRows = [
+      ["弱点(×4)", typeEff.quad], ["弱点(×2)", typeEff.double],
+      ["耐性(×1/2)", typeEff.half], ["耐性(×1/4)", typeEff.quarter], ["無効(×0)", typeEff.immune]
+    ].filter(([,arr])=>arr.length>0);
+    const typeEffLines = typeEffRows.length ? typeEffRows.map(([label,arr])=>`${label}: ${arr.join("、")}`) : [];
+    blocks.push(makeListBlock(mctx,"タイプ相性", t1 ? (typeEffLines.length?typeEffLines:["弱点・耐性なし（等倍のみ）"]) : [], contentW));
+
     // --- 種族値 ---
     const statsH = 30 + statsArr.length*22;
     blocks.push({h:statsH, draw(ctx,yy){
@@ -1270,6 +1548,55 @@ async function exportCardCanvas(mode){
         ly+=22;
       });
       return ly;
+    }});
+
+    // --- 種族値レーダーチャート ---
+    const radarH = 190;
+    blocks.push({h:radarH, draw(ctx,yy){
+      const cx=PAD+contentW/2, cy=yy+radarH/2-6, radius=68, maxVal=200;
+      const n=statsArr.length;
+      const angleFor=i=> -Math.PI/2 + i*(2*Math.PI/n);
+      // グリッド
+      [0.25,0.5,0.75,1].forEach(level=>{
+        ctx.beginPath();
+        for(let i=0;i<n;i++){
+          const a=angleFor(i);
+          const px=cx+radius*level*Math.cos(a), py=cy+radius*level*Math.sin(a);
+          if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+        }
+        ctx.closePath();
+        ctx.strokeStyle="#cfe1ec"; ctx.lineWidth=1; ctx.stroke();
+      });
+      // 軸線
+      for(let i=0;i<n;i++){
+        const a=angleFor(i);
+        ctx.beginPath();
+        ctx.moveTo(cx,cy);
+        ctx.lineTo(cx+radius*Math.cos(a), cy+radius*Math.sin(a));
+        ctx.strokeStyle="#cfe1ec"; ctx.lineWidth=1; ctx.stroke();
+      }
+      // データポリゴン
+      ctx.beginPath();
+      statsArr.forEach((s,i)=>{
+        const a=angleFor(i);
+        const r=radius*Math.min(1, s.val/maxVal);
+        const px=cx+r*Math.cos(a), py=cy+r*Math.sin(a);
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      });
+      ctx.closePath();
+      ctx.fillStyle="rgba(238,127,123,0.32)"; ctx.fill();
+      ctx.strokeStyle="#ee7f7b"; ctx.lineWidth=2; ctx.stroke();
+      // ラベル
+      ctx.fillStyle="#5c6874";
+      ctx.font="12px 'DotGothic16'";
+      ctx.textAlign="center";
+      statsArr.forEach((s,i)=>{
+        const a=angleFor(i);
+        const lx=cx+(radius+18)*Math.cos(a), ly2=cy+(radius+18)*Math.sin(a);
+        ctx.fillText(s.k, lx, ly2+4);
+      });
+      ctx.textAlign="left";
+      return yy+radarH;
     }});
 
     if(mode==="full"){
@@ -1416,6 +1743,40 @@ function typeColor(name){
   return t? t[1] : "#999";
 }
 
+/* 種族値レーダーチャート（六角形）を生成する共通ロジック */
+function hexPoints(cx, cy, radius, values, maxVal){
+  const n = values.length;
+  return values.map((v,i)=>{
+    const angle = -Math.PI/2 + i*(2*Math.PI/n);
+    const r = radius * Math.min(1, v/maxVal);
+    return [cx + r*Math.cos(angle), cy + r*Math.sin(angle)];
+  });
+}
+function hexGridPoints(cx, cy, radius, n){
+  return Array.from({length:n}, (_,i)=>{
+    const angle = -Math.PI/2 + i*(2*Math.PI/n);
+    return [cx + radius*Math.cos(angle), cy + radius*Math.sin(angle)];
+  });
+}
+function buildRadarSVG(values, labels){
+  const size=170, cx=size/2, cy=size/2, radius=58, maxVal=200;
+  const gridLevels=[0.25,0.5,0.75,1];
+  let gridPolys = gridLevels.map(level=>{
+    const pts = hexGridPoints(cx,cy,radius*level,values.length).map(p=>p.join(",")).join(" ");
+    return `<polygon points="${pts}" fill="none" stroke="#cfe1ec" stroke-width="1"/>`;
+  }).join("");
+  const dataPts = hexPoints(cx,cy,radius,values,maxVal).map(p=>p.join(",")).join(" ");
+  const gridPtsOuter = hexGridPoints(cx,cy,radius,values.length);
+  const axisLines = gridPtsOuter.map(p=>`<line x1="${cx}" y1="${cy}" x2="${p[0]}" y2="${p[1]}" stroke="#cfe1ec" stroke-width="1"/>`).join("");
+  const labelPts = hexGridPoints(cx,cy,radius+14,values.length);
+  const labelText = labels.map((l,i)=>`<text x="${labelPts[i][0]}" y="${labelPts[i][1]}" font-size="11" font-family="DotGothic16,monospace" fill="#5c6874" text-anchor="middle" dominant-baseline="middle">${l}</text>`).join("");
+  return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    ${axisLines}${gridPolys}
+    <polygon points="${dataPts}" fill="rgba(238,127,123,0.32)" stroke="var(--stat-red)" stroke-width="2"/>
+    ${labelText}
+  </svg>`;
+}
+
 function render(){
   const dexno = document.getElementById("dexno").value || "001";
   const name = document.getElementById("name").value || "なまえ未設定";
@@ -1470,6 +1831,31 @@ function render(){
   const baseExp=document.getElementById("baseExp").value;
   document.getElementById("pv-baseexp").textContent = baseExp || "－";
 
+  // タイプ相性
+  const typechartEl=document.getElementById("pv-typechart");
+  if(!t1){
+    typechartEl.innerHTML = `<span class="emptynote">タイプ未設定</span>`;
+  }else{
+    const eff = calcTypeEffectiveness(t1, t2);
+    const rows = [
+      ["弱点（×4）", eff.quad],
+      ["弱点（×2）", eff.double],
+      ["耐性（×1/2）", eff.half],
+      ["耐性（×1/4）", eff.quarter],
+      ["無効（×0）", eff.immune]
+    ].filter(([,arr])=>arr.length>0);
+    if(rows.length===0){
+      typechartEl.innerHTML = `<span class="emptynote">弱点・耐性なし（等倍のみ）</span>`;
+    }else{
+      typechartEl.innerHTML = rows.map(([label,arr])=>`
+        <div class="typechart-row">
+          <span class="lbl">${label}</span>
+          ${arr.map(t=>`<span class="typebadge-sm" style="background:${typeColor(t)};">${t}</span>`).join("")}
+        </div>
+      `).join("");
+    }
+  }
+
   // stats
   const statbarsEl=document.getElementById("pv-statbars");
   statbarsEl.innerHTML="";
@@ -1485,6 +1871,9 @@ function render(){
   });
   document.getElementById("pv-stattotal").textContent=total;
   document.getElementById("statTotalLabel").textContent=total;
+
+  // 種族値レーダーチャート
+  document.getElementById("pv-radar").innerHTML = buildRadarSVG(STAT_LABELS.map(([k])=>state.stats[k]||0), STAT_LABELS.map(([k])=>k));
 
   // EV yield
   const evEl=document.getElementById("pv-evyield");
@@ -1546,6 +1935,158 @@ function render(){
     cryEl.innerHTML = `<span class="none">音声ファイル未設定</span>`;
   }
 }
+
+/* ---------------- JSON 保存 / 読み込み ---------------- */
+function collectFullState(){
+  return {
+    _format: "creature-dex-json", _version: 1,
+    dexno: document.getElementById("dexno").value,
+    name: document.getElementById("name").value,
+    genus: document.getElementById("genus").value,
+    description: document.getElementById("dexDescription").value,
+    height: document.getElementById("height").value,
+    weight: document.getElementById("weight").value,
+    genderMode: document.querySelector('input[name="genderMode"]:checked').value,
+    maleRatio: maleRatioInput.value,
+    type1: type1Sel.value,
+    type2: type2Sel.value,
+    abilities: [
+      {name:document.getElementById("abil1name").value, desc:document.getElementById("abil1desc").value},
+      {name:document.getElementById("abil2name").value, desc:document.getElementById("abil2desc").value},
+      {name:document.getElementById("abil3name").value, desc:document.getElementById("abil3desc").value}
+    ],
+    stats: state.stats,
+    ev: state.ev,
+    baseExp: document.getElementById("baseExp").value,
+    evoStageNum: document.getElementById("evoStageNum").value,
+    evoStages: state.evoStages,
+    levelMoves: state.levelMoves,
+    tmMoves: state.tmMoves,
+    eggGroups: state.eggGroups,
+    hatchSteps: document.getElementById("hatchSteps").value,
+    imgNormal: state.imgNormal,
+    imgShiny: state.imgShiny,
+    cryData: state.cryData,
+    cryName: state.cryName,
+    showShiny: state.showShiny
+  };
+}
+
+function applyFullState(data){
+  const setVal=(id,v)=>{ const el=document.getElementById(id); if(el && v!==undefined && v!==null) el.value=v; };
+  setVal("dexno", data.dexno);
+  setVal("name", data.name);
+  setVal("genus", data.genus);
+  setVal("dexDescription", data.description);
+  setVal("height", data.height);
+  setVal("weight", data.weight);
+  setVal("baseExp", data.baseExp);
+  setVal("hatchSteps", data.hatchSteps);
+
+  if(data.genderMode){
+    const radio=document.querySelector(`input[name="genderMode"][value="${data.genderMode}"]`);
+    if(radio){ radio.checked=true; document.getElementById("genderRatioBox").style.display = data.genderMode==="ratio" ? "block":"none"; }
+  }
+  if(data.maleRatio!==undefined){
+    maleRatioInput.value=data.maleRatio;
+    const m=data.maleRatio;
+    document.getElementById("ratioM").style.width=m+"%";
+    document.getElementById("ratioF").style.width=(100-m)+"%";
+    document.getElementById("ratioMlabel").textContent="♂ "+m+"%";
+    document.getElementById("ratioFlabel").textContent="♀ "+(100-m)+"%";
+  }
+
+  if(data.type1!==undefined) type1Sel.value=data.type1;
+  if(data.type2!==undefined) type2Sel.value=data.type2;
+
+  if(Array.isArray(data.abilities)){
+    const ids=["abil1","abil2","abil3"];
+    data.abilities.forEach((a,i)=>{
+      if(!ids[i]) return;
+      setVal(ids[i]+"name", a && a.name);
+      setVal(ids[i]+"desc", a && a.desc);
+    });
+  }
+
+  if(data.stats){
+    state.stats = Object.assign({H:0,A:0,B:0,C:0,D:0,S:0}, data.stats);
+    STAT_LABELS.forEach(([key])=>{
+      const numEl = statInputsEl.querySelector(`[data-stat="${key}"]`);
+      const rangeEl = statInputsEl.querySelector(`[data-statrange="${key}"]`);
+      if(numEl) numEl.value = state.stats[key];
+      if(rangeEl) rangeEl.value = state.stats[key];
+    });
+  }
+  if(data.ev){
+    state.ev = Object.assign({H:0,A:0,B:0,C:0,D:0,S:0}, data.ev);
+    STAT_LABELS.forEach(([key])=>{
+      const numEl = evInputsEl.querySelector(`[data-ev="${key}"]`);
+      const rangeEl = evInputsEl.querySelector(`[data-evrange="${key}"]`);
+      if(numEl) numEl.value = state.ev[key];
+      if(rangeEl) rangeEl.value = state.ev[key];
+    });
+  }
+
+  if(data.evoStageNum!==undefined) document.getElementById("evoStageNum").value=data.evoStageNum;
+  if(Array.isArray(data.evoStages) && data.evoStages.length){
+    state.evoStages = data.evoStages.map(s=>({name:s.name||"", cond:s.cond||""}));
+  }else{
+    state.evoStages=[{name:"",cond:""}];
+  }
+  renderEvoInputs();
+
+  state.levelMoves = Array.isArray(data.levelMoves) ? data.levelMoves.map(m=>({lv:m.lv||"", move:m.move||""})) : [];
+  rerenderLevel();
+  state.tmMoves = Array.isArray(data.tmMoves) ? data.tmMoves.map(m=>({no:m.no||"", move:m.move||""})) : [];
+  rerenderTm();
+
+  state.eggGroups = Array.isArray(data.eggGroups) ? data.eggGroups : [];
+  eggGroupChecksEl.querySelectorAll("input[type=checkbox]").forEach(cb=>{
+    cb.checked = state.eggGroups.includes(cb.value);
+  });
+
+  state.imgNormal = data.imgNormal || null;
+  state.imgShiny = data.imgShiny || null;
+  document.getElementById("thumbNormal").innerHTML = state.imgNormal ? `<img src="${state.imgNormal}">` : `<span style="font-size:9px;color:#999;">NO IMG</span>`;
+  document.getElementById("thumbShiny").innerHTML = state.imgShiny ? `<img src="${state.imgShiny}">` : `<span style="font-size:9px;color:#999;">NO IMG</span>`;
+
+  state.cryData = data.cryData || null;
+  state.cryName = data.cryName || null;
+  document.getElementById("cryFileName").textContent = state.cryName ? "選択中: "+state.cryName : "";
+
+  state.showShiny = !!data.showShiny;
+
+  render();
+}
+
+document.getElementById("saveJson").addEventListener("click", ()=>{
+  const data = collectFullState();
+  const nameVal = (data.name || "creature").trim().replace(/[\\/:*?"<>|]/g,"") || "creature";
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.download = nameVal + "_zukan.json";
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("loadJsonInput").addEventListener("change", e=>{
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      applyFullState(data);
+    }catch(err){
+      console.error(err);
+      alert("JSONファイルの読み込みに失敗しました。ファイルが壊れているか、対応していない形式の可能性があります。");
+    }
+    e.target.value="";
+  };
+  reader.readAsText(file);
+});
 
 render();
 </script>
